@@ -1,0 +1,10 @@
+{
+  "name": "CurtainControl",
+  "version": "0.0.0",
+  "description": "CurtainControl",
+  "main": "server.js",
+  "author": {
+    "name": "blarson",
+    "email": ""
+  }
+}
