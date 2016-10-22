@@ -1,0 +1,16 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <title>Somfy Curtain Control</title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link href="css/style.css" rel="stylesheet" />
+</head>
+<body>
+    <form action="">         <label><font color="#a0a0a0">Direction</font></label>         <select id="MoveDirection">             <option data-value='UpLimit'>Up</option>             <option data-value='DownLimit'>Down</option>           </select>         <label><font color="#a0a0a0">Window</font></label>         <select id="Window">             <option data-value='{"type":"group", "addr": "0x100000"}'>All Windows</option>             <option data-value='{"type":"group", "addr": "0x010110"}'>Main Floor</option>             <option data-value='{"type":"motor", "addr": "0x0671E4"}'>Stair East</option>             <option data-value='{"type":"motor", "addr": "0x067c9f"}'>Stair Center</option>             <option data-value='{"type":"motor", "addr": "0x067121"}'>Stair West</option>             <option data-value='{"type":"motor", "addr": "0x065F07"}'>Over Door</option>         </select>         <button>Send</button>     </form>
+    <script src="external/jquery/jquery.js"></script>
+    <script src="jquery-ui.js"></script>
+    <script src="./socket.io-client/socket.io.js"></script>
+    <script src="js/index.js"></script>
+</body>
+</html>
