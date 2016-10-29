@@ -2,6 +2,11 @@ var socket = io();
 
 socket.io._timeout = 30000;
 
+var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
+    0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
+    0x06794F, 0x067982, 0x067984, 0x067981,
+    0x067D0F];
+
 
 $(function () {
     var dateFormat = "yyyy-mm-dd",
@@ -58,12 +63,26 @@ $(function () {
     $("#ymin").change(function () {
         console.log('yminx change');
     });
+    
+    $("#eq > span").each(function (iSlider) {
+        // read initial values from markup and remove that
+        var value = parseInt($(this).text(), 10);
+        $(this).empty().slider({
+            value: value,
+            range: "min",
+            animate: true,
+            orientation: "vertical",
+            change: function (event, ui) {
+                console.log("Slider" + iSlider + "=" + ui.value);
+                socket.emit('Action', { cmd: "move", type: "motor", addr: motors[iSlider] });
+            }
+        });
+    });
 
     $("#plotType").selectmenu({
         change: function (event, data) {
         }
     })
-
     .addClass("overflow");
 });
 

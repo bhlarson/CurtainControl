@@ -1,7 +1,7 @@
 ﻿module.exports.CommandEnum = {
     CTRL_MOVE : 0x01, // In
     CTRL_STOP : 0x02, // In
-    CTRL_MOVETO : 0x03, // In
+    CTRL_MOVETO : 0x54, // In
     CTRL_MOVEOF : 0x04, // In
     CTRL_WINK : 0x05, // In
 
@@ -39,15 +39,20 @@
 const srcAddr = 0x01;
 
 DevicesEnum = {
+    ILT : 0x00,
     ST30 : 0x02,
 };
 
 module.exports.MoveEnum = {
-    DownLimit : 0x00,
-	UpLimit : 0x01,
-	IncPos : 0x02,
-	CountPos : 0x03,
-    Percent : 0x04
+    UpLimit : 0x01,
+    DownLimit : 0x02,
+    Stop : 0x03,
+    Ip : 0x04,
+    NextIpUp : 0x05,
+    NextIpDown : 0x06,
+    JogUp : 0x0A,
+    JogDown : 0x0B,
+    Percent : 0x10
 };
  
 CheckSum = function (msg) {
@@ -62,15 +67,13 @@ CheckSum = function (msg) {
 
     
 module.exports.MoveData = function (move, data) {
-    const m_dataSize = 4;
+    const m_dataSize = 3;
     const m_cmdOffset = 0;
-    const m_distOffset = 1;
     
     var moveData = Buffer(m_dataSize);
     moveData[0] = move;
     moveData[1] = data & 0x00FF;
     moveData[2] = (data & 0xFF00) >> 8;
-    moveData[3] = 0;
     
     return moveData;
 };
@@ -85,22 +88,22 @@ module.exports.StopGroup = function (groupAddr) {
 
 module.exports.DownLimit = function (destAddr) {
     var moveData = module.exports.MoveData(module.exports.MoveEnum.DownLimit, 0);
-    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+    return module.exports.IltMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
 module.exports.DownLimitGroup = function (groupAddr) {
     var moveData = module.exports.MoveData(module.exports.MoveEnum.DownLimit, 0);
-    return module.exports.SomfyMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+    return module.exports.IltMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
 module.exports.UpLimit = function (destAddr) {
     var moveData = module.exports.MoveData(module.exports.MoveEnum.UpLimit, 0);
-    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+    return module.exports.IltMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
 module.exports.UpLimitGroup = function (groupAddr) {
     var moveData = module.exports.MoveData(module.exports.MoveEnum.UpLimit, 0);
-    return module.exports.SomfyMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+    return module.exports.IltMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
 module.exports.GetPosition = function (destAddr) {
@@ -137,6 +140,37 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     somfyMsg[src_offset] = (srcAddr & 0x000000FF);
     somfyMsg[src_offset + 1] = ((srcAddr & 0x0000FF00) >> 8);
     somfyMsg[src_offset + 2] = ((srcAddr & 0x00FF0000) >> 16);
+    somfyMsg[dest_offset] = ~(destAddr & 0x000000FF);
+    somfyMsg[dest_offset + 1] = ~((destAddr & 0x0000FF00) >> 8);
+    somfyMsg[dest_offset + 2] = ~((destAddr & 0x00FF0000) >> 16);
+    
+    for (var i = 0; i < msgData.length; i++) {
+        somfyMsg[data_offset + i] = ~msgData[i];
+    }
+    
+    var checkSum = CheckSum(somfyMsg);
+    somfyMsg[somfyMsg.length - 1] = (checkSum & 0x00FF);
+    somfyMsg[somfyMsg.length - 2] = (checkSum & 0xFF00) >> 8;
+    
+    return somfyMsg;
+};
+
+module.exports.IltMsg = function (srcAddr, destAddr, cmd, msgData) {
+    const msgOverhead = 11;
+    const msg_offset = 0;
+    const len_offset = 1;
+    const dev_offst = 2;
+    const src_offset = 3;
+    const dest_offset = 6;
+    const data_offset = 9;
+    
+    var somfyMsg = Buffer(msgOverhead + msgData.length);
+    somfyMsg[msg_offset] = ~cmd;
+    somfyMsg[len_offset] = ~somfyMsg.length;
+    somfyMsg[dev_offst] = ~DevicesEnum.ILT;
+    somfyMsg[src_offset + 2] = (srcAddr & 0x000000FF);
+    somfyMsg[src_offset + 1] = ((srcAddr & 0x0000FF00) >> 8);
+    somfyMsg[src_offset] = ((srcAddr & 0x00FF0000) >> 16);
     somfyMsg[dest_offset] = ~(destAddr & 0x000000FF);
     somfyMsg[dest_offset + 1] = ~((destAddr & 0x0000FF00) >> 8);
     somfyMsg[dest_offset + 2] = ~((destAddr & 0x00FF0000) >> 16);

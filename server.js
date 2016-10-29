@@ -149,7 +149,8 @@ serialPort.on("open", function () {
         socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
             console.log('Action ' + JSON.stringify(data));
             if (data.cmd == 'UpLimit' && data.type == 'motor') {
-                var cmd = sdn.UpLimit(data.addr);
+                var cmd = sdn.UpLimit(Number(data.addr));
+                console.log(cmd);
                 serialPort.write(cmd, function (err, results) {
                     if (err != undefined) {
                         console.log('err ' + err);
@@ -158,7 +159,8 @@ serialPort.on("open", function () {
                 });
             }
             else if (data.cmd == 'DownLimit' && data.type == 'motor') {
-                var cmd = sdn.DownLimit(data.addr);
+                var cmd = sdn.DownLimit(Number(data.addr));
+                console.log(cmd);
                 serialPort.write(cmd, function (err, results) {
                     if (err != undefined) {
                         console.log('err ' + err);
@@ -167,7 +169,8 @@ serialPort.on("open", function () {
                 });
             }
             else if (data.cmd == 'UpLimit' && data.type == 'group') {
-                var cmd = sdn.UpLimitGroup(data.addr);
+                var cmd = sdn.UpLimitGroup(Number(data.addr));
+                console.log(cmd);
                 serialPort.write(cmd, function (err, results) {
                     if (err != undefined) {
                         console.log('err ' + err);
@@ -175,8 +178,9 @@ serialPort.on("open", function () {
                     }
                 });
             }
-            else if (data.cmd == 'DownLimit' && data.type == 'motor') {
-                var cmd = sdn.DownLimitGroup(data.addr);
+            else if (data.cmd == 'DownLimit' && data.type == 'group') {
+                var cmd = sdn.DownLimitGroup(Number(data.addr));
+                console.log(cmd);
                 serialPort.write(cmd, function (err, results) {
                     if (err != undefined) {
                         console.log('err ' + err);
