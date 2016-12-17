@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
-    <title>Somfy Curtain Control</title>
+    <title>Curtain Control</title>
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
     <link href="css/style.css" rel="stylesheet" />
     <style>
@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <form action="">
+    <form name = "GroupControl" action="">
         <label><font color="#a0a0a0">Direction</font></label>
         <select id="MoveDirection">
             <option data-value='UpLimit'>Up</option>
@@ -24,23 +24,63 @@
         <select id="Window">
             <option data-value='{"type":"group", "addr": "0x100000"}'>All Windows</option>
             <option data-value='{"type":"group", "addr": "0x010110"}'>Main Floor</option>
-            <option data-value='{"type":"motor", "addr": "0x0671E4"}'>Stair East</option>
-            <option data-value='{"type":"motor", "addr": "0x067c9f"}'>Stair Center</option>
-            <option data-value='{"type":"motor", "addr": "0x067944"}'>Sunroom East</option>
-            <option data-value='{"type":"motor", "addr": "0x065F07"}'>Over Door</option>
+            <option data-value='{"type":"group", "addr": "0x010101"}'>All Sunroom</option>
+            <option data-value='{"type":"group", "addr": "0x010102"}'>South Sunroom</option>
+            <option data-value='{"type":"group", "addr": "0x010103"}'>West Sunroom</option>
+            <option data-value='{"type":"group", "addr": "0x000101"}'>All Basement</option>
+            <option data-value='{"type":"group", "addr": "0x000102"}'>South Basement</option>
+            <option data-value='{"type":"group", "addr": "0x000103"}'>West Basement</option>
+            <option data-value='{"type":"group", "addr": "0x000104"}'>South Corner Basement</option>
         </select>
         <button>Send</button>
     </form>
 
     <div id="eq">
-        <span>0</span>
-        <span>0</span>
-        <span>0</span>
-        <span>0</span>
-        <span>0</span>
-        <span>0</span>
-        <span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
+        <input type="checkbox" /><span>0</span>
     </div>
+
+    <div>
+        <label><font color="#a0a0a0">Get Motor Position</font></label>
+        <select id="MotorPosition">
+            <option data-value='0x0671E4'>Stairs East</option>
+            <option data-value='0x0671E4'>Stairs Center</option>
+            <option data-value='0x067121'>Stairs West</option>
+            <option data-value='0x065F07'>Over Door</option>
+        </select>
+        <button>Read</button>
+        <label id="position"><font color="#a0a0a0">0000</font></label>
+    </div>
+
+    <div>
+        <button id="DBButton" onclick="DBFunction()">Data</button>
+    </div>
+
+    <div>
+        <button id="Service" onclick="location.href='.//service.html';">Service</button>
+    </div>
+
+    <form></form>
 
     <script src="external/jquery/jquery.js"></script>
     <script src="jquery-ui.js"></script>

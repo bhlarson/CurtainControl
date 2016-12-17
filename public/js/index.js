@@ -5,7 +5,11 @@ socket.io._timeout = 30000;
 var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
     0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
     0x06794F, 0x067982, 0x067984, 0x067981,
-    0x067D0F];
+    0x067D0F, 0x067CD9, 0x0679D7, 0x0679D2, 0x06799B,
+    0x06792F, 0x06793F, 0x067930, 0x06793B];
+
+var motors1;
+var groups1;
 
 
 $(function () {
@@ -67,16 +71,36 @@ $(function () {
     $("#eq > span").each(function (iSlider) {
         // read initial values from markup and remove that
         var value = parseInt($(this).text(), 10);
-        $(this).empty().slider({
+        $(this).slider({
             value: value,
             range: "min",
             animate: true,
             orientation: "vertical",
             change: function (event, ui) {
                 console.log("Slider" + iSlider + "=" + ui.value);
-                socket.emit('Action', { cmd: "move", type: "motor", addr: motors[iSlider] });
+                socket.emit('Action', { cmd: "Percent", type: "motor", addr: motors[iSlider], value: 100-ui.value});
             }
         });
+    });
+    $("#eq > input[type=checkbox]").each(function (iLock) {
+        $(this).change(function (event, ui) {
+            console.log('checkbox ' + iLock + ' changed to: ', $(this)[0].checked);
+            if ($(this)[0].checked) {
+                socket.emit('Action', { cmd: "Lock", type: "motor", addr: motors[iLock] });
+            }
+            else {
+                socket.emit('Action', { cmd: "Unlock", type: "motor", addr: motors[iLock] });
+            }
+        });
+        //input[0].onchange(function(event, data) {
+        //    console.log('checkbox '+ iLock +' changed to: ', input.value);
+        //});
+        //$(this).input({
+        //    change: function (event, ui) {
+        //        console.log("Slider" + iLock + "=" + ui.value);
+        //        socket.emit('Action', { cmd: "Lock", type: "motor"});
+        //    }
+        //});
     });
 
     $("#plotType").selectmenu({
@@ -96,6 +120,12 @@ $('form').submit(function () {
 
 init();
 function init() {
+    $.get("/GetMotors", function (serverMotors) {
+        $.get("/GetGroups", function (serverGroups) {
+            motors1 = serverMotors;
+            groups2 = serverGroups;
+        });
+    });
  }
 function onWindowResize() {   
 }

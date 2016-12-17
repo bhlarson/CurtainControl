@@ -14,6 +14,7 @@
     SET_MOTOR_DIRECTION : 0x12, // In
     SET_MOTOR_ROLLING_SPEED : 0x13, // In
     SET_MOTOR_IP : 0x15, // In
+    POST_DCT_LOCK : 0x17,
 
     GET_MOTOR_LIMITS : 0x21,
     GET_MOTOR_DIRECTION : 0x22,
@@ -25,8 +26,10 @@
     POST_MOTOR_DIRECTION : 0x32,
     POST_MOTOR_ROLLING_SPEED : 0x33,
     POST_MOTOR_IP : 0x35,
-    POST_DCT_LOCK : 0x37,
     POST_FACTORY_DEFAULT : 0x3F,
+
+    GET_LOCK :  0x4B,
+    SET_LOCK : 0x5B,
 
     GET_NODE_ADDR : 0x50,
     GET_GROUP_ADDR : 0x51,
@@ -116,9 +119,35 @@ module.exports.SetPosition = function (destAddr, countPosition) {
     return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
-module.exports.SetPositionGroup = function (groupAddr, countPosition) {
-    var moveData = module.exports.MoveData(module.exports.MoveEnum.CountPos, countPosition);
+module.exports.SetPercent = function (destAddr, percent) {
+    var moveData = module.exports.MoveData(module.exports.MoveEnum.Percent, percent);
+    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+};
+
+module.exports.SetPercentGroup = function (groupAddr, percent) {
+    var moveData = module.exports.MoveData(module.exports.MoveEnum.Percent, percent);
     return module.exports.SomfyMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
+};
+
+module.exports.GetLock = function (destAddr) {
+    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.GET_LOCK, Buffer(0));
+};
+
+module.exports.SetLock = function (destAddr, lock) {
+    // 0x0000 - lock current
+    // 0x0100 - lock up
+    // 0x0200 - lock down
+    // 0x04ip - lock at incremental position
+    // 0x0500 - unlock
+    var moveData = Buffer(3);
+    moveData[0] = 0x05; // Unlock
+    if (lock == true) {
+        moveData[0] = 0x00;
+    }
+    moveData[1] = 0;
+    moveData[2] = 1; // Priority
+
+    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.SET_LOCK, moveData);
 };
     
 module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
@@ -151,6 +180,49 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     
     return somfyMsg;
 };
+
+function Valid(message)
+{
+    var valid = true;
+    if (message.length() > 0 && Commnad(~message(0)) == INVALID_COMMAD) {
+        valid == false;
+    }
+    if (message.length() > 1 && ~message(2) < 11 || ~message(2) > 16) {
+        valid = false;
+    }    
+    if (message.length() > 2 && message(1) != 0x03 || message(1) != 0x20) {
+        valid = false;       
+    }
+    if (message.length() > 11 && message.length() == ~message(2)) {
+        var messageChecksum = message
+        var cumputedCheckSum = CheckSum(message);
+        if (messageChecksum != cumputedCheckSum) {
+            valid = false;
+        }
+    }
+    if (message.lenght() > 16) {
+        valid = false;
+    }
+
+    return valid;
+}
+
+module.exports.SomfyReciveMessage = function (serialData, message, messageCallback) {
+    message = Buffer.concat([message, serialData]);
+    
+    if (!Valid(message)) {
+        return Buffer();
+    }
+    
+    if (message.lenth >= msgOverhead) {
+        // Might be a message.  Check 
+
+    }
+
+    return message;
+}
+
+
 
 
 

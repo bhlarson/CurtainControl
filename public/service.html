@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Curtain Service</title>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link href="css/style.css" rel="stylesheet" />
+
+</head>
+<body>
+    <div>
+        <button id="Main" onclick="location.href='.//index.html';">Main</button>
+        <button id="Open" onclick="Open()">Open</button>
+    </div>
+
+    <div class="demo">
+
+        <form action="#">
+            <fieldset>
+                <label for="motorNames">Select a motor</label>
+                <select name="motorNames" id="motorNames"></select>
+
+                <label for="groupNames">Select a group</label>
+                <select name="groupNames" id="groupNames"></select>
+            </fieldset>
+        </form>
+
+    </div>
+
+    <script src="external/jquery/jquery.js"></script>
+    <script src="jquery-ui.js"></script>
+    <script src="./socket.io-client/socket.io.js"></script>
+    <script src="js/service.js"></script>
+</body>
+</html>

@@ -10,6 +10,14 @@ Node.js control of Somfy SDN curtains and keypads
 	>nodejs RemoteDebug.js server.js
 5) execute project
 	>nodejs server.js
+6) auto start:
+	a) Log into to pi as root in putty
+	b) Copy  ”nodecurtain.service” to /etc/system/system
+	c) Enable and start:
+		$  sudo systemctl enable nodecurtain.service
+		$  sudo systemctl restart nodecurtain.service
+		$ ps aux
+
 
 
 Notes:
