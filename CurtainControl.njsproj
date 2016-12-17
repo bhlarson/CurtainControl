@@ -32,6 +32,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="public\js\index.js" />
+    <Compile Include="public\js\service.js" />
     <Compile Include="sdn-protocol.js" />
     <Compile Include="server.js" />
     <Content Include="Documents\MainFloorSwitchProgramFixOverDoor.set" />
@@ -42,6 +43,7 @@
     <Content Include="Documents\SwitchMainUpCommand.txt" />
     <Content Include="package.json" />
     <Content Include="public\index.html" />
+    <Content Include="public\service.html" />
     <Content Include="README.md" />
   </ItemGroup>
   <ItemGroup>

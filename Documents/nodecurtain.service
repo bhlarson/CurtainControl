@@ -1,0 +1,23 @@
+# Install as /etc/systemd/system/nodecurtain.service
+#$ sudo systemctl daemon-reload -- reload service
+#$ sudo systemctl enable nodecurtain.service
+#$ sudo systemctl restart nodecurtain.service -- restart process
+#$ ps aux -- list running processes
+# Output to /var/log/syslog
+
+[Unit]
+Description=Node.js Curtain Control Server
+#Requires=After=mysql.service       # Requires the mysql service to run first
+
+[Service]
+ExecStart=/usr/bin/nodejs /home/pi/CurtainControl/server.js
+WorkingDirectory=/home/pi/CurtainControl
+Restart=on-failure
+SyslogIdentifier=CurtainControl
+User=pi
+Group=pi
+Environment=PATH=/home/pi/CurtainControl
+Environment=NODE_ENV=production PORT=5000
+
+[Install]
+WantedBy=multi-user.target

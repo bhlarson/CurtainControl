@@ -1,0 +1,2 @@
+C:\git\CurtainControl\obj\Debug\CurtainControl.njsprojResolveAssemblyReference.cache
+C:\git\CurtainControl\bin\Microsoft.NodejsTools.WebRole.dll

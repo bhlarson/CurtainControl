@@ -1,0 +1,95 @@
+Oct 30 13:25:05 raspberrypi rsyslogd: [origin software="rsyslogd" swVersion="8.4.2" x-pid="430" x-info="http://www.rsyslog.com"] rsyslogd was HUPed
+Oct 30 13:25:05 raspberrypi rsyslogd: [origin software="rsyslogd" swVersion="8.4.2" x-pid="430" x-info="http://www.rsyslog.com"] rsyslogd was HUPed
+Oct 30 13:47:01 raspberrypi CRON[10384]: (root) CMD (test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly ))
+Oct 30 14:17:01 raspberrypi CRON[10408]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 15:17:01 raspberrypi CRON[10437]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 16:17:01 raspberrypi CRON[10466]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 17:17:02 raspberrypi CRON[10504]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 17:36:58 raspberrypi systemd[1]: Starting Session c32 of user pi.
+Oct 30 17:36:58 raspberrypi systemd[1]: Started Session c32 of user pi.
+Oct 30 18:17:01 raspberrypi CRON[10596]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 19:17:01 raspberrypi CRON[10633]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 20:17:01 raspberrypi CRON[10661]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 21:17:01 raspberrypi CRON[10689]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 22:17:01 raspberrypi CRON[10717]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 23:17:01 raspberrypi CRON[10745]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 30 23:22:12 raspberrypi systemd[1]: Starting Session c33 of user pi.
+Oct 30 23:22:12 raspberrypi systemd[1]: Started Session c33 of user pi.
+Oct 30 23:50:39 raspberrypi systemd[1]: Starting Session c34 of user pi.
+Oct 30 23:50:39 raspberrypi systemd[1]: Started Session c34 of user pi.
+Oct 31 00:17:01 raspberrypi CRON[10818]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 31 01:09:48 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked executable. Please remove executable permission bits. Proceeding anyway.
+Oct 31 01:09:48 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked world-writable. Please remove world writability permission bits. Proceeding anyway.
+Oct 31 01:09:48 raspberrypi systemd[1]: Reloading.
+Oct 31 01:09:48 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked executable. Please remove executable permission bits. Proceeding anyway.
+Oct 31 01:09:48 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked world-writable. Please remove world writability permission bits. Proceeding anyway.
+Oct 31 01:15:02 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked executable. Please remove executable permission bits. Proceeding anyway.
+Oct 31 01:15:02 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked world-writable. Please remove world writability permission bits. Proceeding anyway.
+Oct 31 01:15:02 raspberrypi systemd[1]: Reloading.
+Oct 31 01:15:02 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked executable. Please remove executable permission bits. Proceeding anyway.
+Oct 31 01:15:02 raspberrypi systemd[1]: Configuration file /etc/systemd/system/nodecurtain.service is marked world-writable. Please remove world writability permission bits. Proceeding anyway.
+Oct 31 01:15:02 raspberrypi systemd[1]: [/etc/systemd/system/nodecurtain.service:9] Failed to parse output specifier, ignoring: syslog               # Output to syslog
+Oct 31 01:15:02 raspberrypi systemd[1]: [/etc/systemd/system/nodecurtain.service:10] Failed to parse output specifier, ignoring: syslog                # Output to syslog
+Oct 31 01:15:10 raspberrypi systemd[1]: Starting Node.js Curtain Control Server...
+Oct 31 01:15:10 raspberrypi systemd[1]: Started Node.js Curtain Control Server.
+Oct 31 01:15:10 raspberrypi CurtainControl[10928]: Starting CurtainControl on linux
+Oct 31 01:15:13 raspberrypi CurtainControl[10928]: sunrise Today:  Sun Oct 30 2016 07:48:44 GMT-0700 (PDT)
+Oct 31 01:15:13 raspberrypi CurtainControl[10928]: sunrise  Sun Oct 30 2016 07:48:44 GMT-0700 (PDT)
+Oct 31 01:15:13 raspberrypi CurtainControl[10928]: Socket.IO listening on port 1337
+Oct 31 01:15:13 raspberrypi CurtainControl[10928]: serial open
+Oct 31 01:17:01 raspberrypi CRON[10948]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: TypeError: path must be absolute or specify root to res.sendFile
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at ServerResponse.sendFile (/home/pi/CurtainControl/node_modules/express/lib/response.js:389:11)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/server.js:24:9
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at next (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:100:13)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at Route.dispatch (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:81:3)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:234:24
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at Function.proto.process_params (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:312:12)
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:228:12
+Oct 31 01:18:01 raspberrypi CurtainControl[10928]: at Function.match_layer (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:295:3)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: TypeError: path must be absolute or specify root to res.sendFile
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at ServerResponse.sendFile (/home/pi/CurtainControl/node_modules/express/lib/response.js:389:11)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/server.js:24:9
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at next (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:100:13)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at Route.dispatch (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:81:3)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:234:24
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at Function.proto.process_params (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:312:12)
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:228:12
+Oct 31 01:18:04 raspberrypi CurtainControl[10928]: at Function.match_layer (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:295:3)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: TypeError: path must be absolute or specify root to res.sendFile
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at ServerResponse.sendFile (/home/pi/CurtainControl/node_modules/express/lib/response.js:389:11)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/server.js:24:9
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at next (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:100:13)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at Route.dispatch (/home/pi/CurtainControl/node_modules/express/lib/router/route.js:81:3)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at Layer.handle [as handle_request] (/home/pi/CurtainControl/node_modules/express/lib/router/layer.js:82:5)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:234:24
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at Function.proto.process_params (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:312:12)
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at /home/pi/CurtainControl/node_modules/express/lib/router/index.js:228:12
+Oct 31 01:18:05 raspberrypi CurtainControl[10928]: at Function.match_layer (/home/pi/CurtainControl/node_modules/express/lib/router/index.js:295:3)
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: abf1ff
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: 00
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: 01
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: 01
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: fb
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: f0
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: 08
+Oct 31 01:23:40 raspberrypi CurtainControl[10928]: data received: 84
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: ab
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: f1ff
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: 0101
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: 10
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: ff
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: fb
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: f0
+Oct 31 01:25:01 raspberrypi CurtainControl[10928]: data received: ff0894
