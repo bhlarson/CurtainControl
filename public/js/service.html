@@ -1,17 +1,26 @@
 ﻿<!DOCTYPE html>
+
+
+
 <html xmlns="http://www.w3.org/1999/xhtml">
+
+
 <head>
     <meta charset="utf-8" />
+
     <title>Curtain Service</title>
+
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
     <link href="css/style.css" rel="stylesheet" />
+
+
 </head>
 
 <body>
     <div>
-        <input type="button" id="Main" onclick="location.href='.//index.html';">Main</inputbutton>
-        <input type="button" id="Main" onclick="location.href='.//serviceNL.html';">Nathan</inputbutton>
-        <input type="button" id="Apply" onclick="Apply()">Apply</input>
+        <button id="Main" onclick="location.href='./index.html';">Main</button>
+        <button id="Select" onclick="Select()">Select</button>
     </div>
 
 
@@ -29,14 +38,15 @@
         </fieldset>
     </form>
 
-<table border="1" id="mtable">
-    <thead><tr><td>Item</td><td>Red</td><td>Green</td></tr></thead>
-    <tbody><tr><td>Some Item</td><td><input type="checkbox" /></td><td><input type="checkbox" /></td></tr></tbody>
-</table><br /><br />
 
     <script src="external/jquery/jquery.js"></script>
+
     <script src="jquery-ui.js"></script>
+
     <script src="./socket.io-client/socket.io.js"></script>
+
     <script src="js/service.js"></script>
+
 </body>
+
 </html>

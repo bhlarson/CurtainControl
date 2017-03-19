@@ -129,6 +129,29 @@ module.exports.SetPercentGroup = function (groupAddr, percent) {
     return module.exports.SomfyMsg(groupAddr, 0x0, module.exports.CommandEnum.CTRL_MOVETO, moveData);
 };
 
+module.exports.Jog = function (destAddr, down, time) {
+    var jogCmd = Buffer(3);
+    if (down == 'true' || down == true || down != 0) {
+        jogCmd[0] = 0x00;
+    }
+    else {
+        jogCmd[0] = 0x01;
+    }
+
+    if (time < 0.1) {
+        jogCmd[1] = 0x0A;
+    }
+    else if (time >= 2.55) {
+        jogCmd[1] = 0xff;
+    }
+    else {
+        jogCmd[1] = time*100;
+    }
+    jogCmd[2] = 0x02; // slow speed
+    
+    return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.CTRL_MOVE, jogCmd);
+};
+
 module.exports.GetLock = function (destAddr) {
     return module.exports.SomfyMsg(srcAddr, destAddr, module.exports.CommandEnum.GET_LOCK, Buffer(0));
 };

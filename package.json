@@ -8,11 +8,12 @@
     "email": "bhlarson@gmail.com"
   },
   "dependencies": {
-    "express": "~4.9.0",
-    "socket.io": "1.4.6",
-    "serialport": "4.0.1",
-    "virtual-serialport": "0.2.1",
-    "solar-calc": "1.0.3",
-    "node-schedule": "1.1.1"
+    "express": "^4.14.0",
+    "mysql": "^2.13.0",
+    "node-schedule": "^1.2.0",
+    "serialport": "^4.0.7",
+    "socket.io": "^1.7.2",
+    "solar-calc": "^1.1.0",
+    "virtual-serialport": "0.2.1"
   }
 }

@@ -7,14 +7,8 @@ var io = require('socket.io')(http);
 var SolarCalc = require('solar-calc');
 var schedule = require('node-schedule');
 var sdn = require('./sdn-protocol');
-
 //var mysql = require('mysql');
-//var connection = mysql.createConnection({
-//    host     : '192.168.1.95',
-//    user     : 'curtainpi',
-//    password : 'raspberry',
-//    database : 'curtain_log'
-//});
+console.log("All External Dependancies Found");
 
 var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
     0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
@@ -50,8 +44,8 @@ var motors = [
 var groups = [
     { name: "All Curtains", description: "All curtains", address: 0x100000,  motors:[] },
     { name: "Main Floor", description: "All main floor curtains", address: 0x010110, motors:[] },
-    { name: "Bay Window", description: "Bay window curtains", address: 010202, motors:[] },
-    { name: "Front Door", description: "Front door curtains", address: 010203 , motors:[] },
+    { name: "Bay Window", description: "Bay window curtains", address: 0x010202, motors:[] },
+    { name: "Front Door", description: "Front door curtains", address: 0x010203 , motors:[] },
     { name: "All Sunroom", description: "All sunroom curtains", address: 0x010101,  motors:[] },
     { name: "South Sunroom", description: "South sunroom curtains", address: 0x010102,  motors:[] },
     { name: "West Sunroom", description: "West sunroom curtains", address: 0x010103,  motors:[] },
@@ -60,6 +54,39 @@ var groups = [
     { name: "West Basement", description: "West basement curtains", address: 0x000103,  motors:[] },
     { name: "South Corner Basement", description: "South Corner Basement curtains", address: 0x000104,  motors:[] }
 ];
+
+//var connection = mysql.createConnection({
+//    host     : 'localhost',
+//    user     : 'root',
+//    password : 'password',
+//    database : 'curtaindb'
+//});
+
+//var pool = mysql.createPool({
+//    connectionLimit : 10,
+//    host            : 'localhost',
+//    user            : 'root',
+//    password        : 'password',
+//    database        : 'curtaindb'
+//});
+
+var record = { address: 0x0671E4, name: "Bay East", description: "Main Bay East" };
+
+//pool.query('INSERT INTO motors SET ?', record, function (err, res) {
+//    if (err) throw err;
+    
+//    console.log('Last record insert id:', res.insertId);
+//});
+
+//pool.query('SELECT * FROM motors', function (err, res, field) {
+//    if (err) {
+//        exist(err); //No error
+//    } else if (res) {
+//        console.log(res);  //displays '[]'
+//    } else {
+//        console.log('pool.query no result');
+//    }
+//});
 
 
 var SerialPort;
@@ -92,12 +119,6 @@ http.listen(port, function () {
 
 var solar = new SolarCalc(new Date(), 45.5, -122.8);
 console.log("sunrise Today: ", solar.sunrise.toString());
-
-//http.createServer(function (req, res) {
-//    res.writeHead(200, { 'Content-Type': 'text/plain' });
-//    res.end('Cutain Control\n');
-//}).listen(port);
-//45.5081283, -122.777942
 
 var solar = new SolarCalc(new Date(), 45.5, -122.8);
 console.log("sunrise ", solar.sunrise);
@@ -269,6 +290,16 @@ serialPort.on("open", function () {
             }
             else if (data.cmd == 'Percent' && data.type == 'motor') {
                 var cmd = sdn.SetPercent(Number(data.addr), Number(data.value));
+                console.log(cmd);
+                serialPort.write(cmd, function (err, results) {
+                    if (err != undefined) {
+                        console.log('err ' + err);
+                        console.log('results ' + results);
+                    }
+                });
+            }
+            else if (data.cmd == 'Jog' && data.type == 'motor') {
+                var cmd = sdn.Jog(Number(data.addr), data.down, Number(data.time));
                 console.log(cmd);
                 serialPort.write(cmd, function (err, results) {
                     if (err != undefined) {

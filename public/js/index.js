@@ -1,5 +1,4 @@
 var socket = io();
-
 socket.io._timeout = 30000;
 
 var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
@@ -9,10 +8,11 @@ var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
     0x06792F, 0x06793F, 0x067930, 0x06793B];
 
 var motors1;
-var groups1;
+var groups;
 
 
 $(function () {
+    /*
     var dateFormat = "yyyy-mm-dd",
         from = $("#from")
         .datepicker({
@@ -108,6 +108,7 @@ $(function () {
         }
     })
     .addClass("overflow");
+    */
 });
 
 $('form').submit(function () {
@@ -118,15 +119,44 @@ $('form').submit(function () {
     return false;
 });
 
+function AddCmd(group, i) {
+    var cmdDiv = document.getElementById("CmdButtons");
+    var open = document.createElement('input');
+    open.type = "button";
+    open.value = group.name;
+    open.onclick = function (){
+        socket.emit('Action', { cmd: "UpLimit", type: "group", addr: group.address });
+    };
+    open.value = group.name + " Open";
+    open.setAttribute("class", "MainCtrl");
+    cmdDiv.appendChild(open);
+    
+    var close = document.createElement('input');
+    close.type = "button";
+    close.value = group.name;
+    close.onclick = function(){
+        socket.emit('Action', { cmd: "DownLimit", type: "group", addr: group.address
+    });
+    };
+    close.value = group.name + " Close";
+    close.setAttribute("class", "MainCtrl");
+    cmdDiv.appendChild(close);
+}
+
 init();
 function init() {
-    $.get("/GetMotors", function (serverMotors) {
-        $.get("/GetGroups", function (serverGroups) {
+    $.get("GetMotors", function (serverMotors) {
+        $.get("GetGroups", function (serverGroups) {
             motors1 = serverMotors;
-            groups2 = serverGroups;
+            groups = serverGroups;
+
+            groups.forEach(function (group, i) {
+                AddCmd(group, i);
+            });
         });
     });
- }
+}
+
 function onWindowResize() {   
 }
 function onDocumentMouseMove(event) {
@@ -139,3 +169,4 @@ function onDocumentTouchMove(event) {
     if (event.touches.length === 1) {
     }
 }
+

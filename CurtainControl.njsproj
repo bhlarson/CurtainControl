@@ -31,6 +31,9 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="node_modules\jquery-ui-1.12.1\external\jquery\jquery.js" />
+    <Compile Include="node_modules\jquery-ui-1.12.1\jquery-ui.js" />
+    <Compile Include="public\js\config.js" />
     <Compile Include="public\js\index.js" />
     <Compile Include="public\js\service.js" />
     <Compile Include="sdn-protocol.js" />
@@ -41,13 +44,20 @@
     <Content Include="Documents\Sonfy RS485 Decode.docx" />
     <Content Include="Documents\st30-rs485.pdf" />
     <Content Include="Documents\SwitchMainUpCommand.txt" />
+    <Content Include="node_modules\jquery-ui-1.12.1\jquery-ui.css" />
     <Content Include="package.json" />
+    <Content Include="public\config.html" />
     <Content Include="public\index.html" />
+    <Content Include="public\js\service.html" />
     <Content Include="public\service.html" />
     <Content Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Documents\" />
+    <Folder Include="node_modules\" />
+    <Folder Include="node_modules\jquery-ui-1.12.1\" />
+    <Folder Include="node_modules\jquery-ui-1.12.1\external\" />
+    <Folder Include="node_modules\jquery-ui-1.12.1\external\jquery\" />
     <Folder Include="public\" />
     <Folder Include="public\js\" />
   </ItemGroup>
