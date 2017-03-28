@@ -8,6 +8,7 @@
     "email": "bhlarson@gmail.com"
   },
   "dependencies": {
+    "dotenv": "4.0.0",
     "express": "^4.14.0",
     "mysql": "^2.13.0",
     "node-schedule": "^1.2.0",

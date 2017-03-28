@@ -4,6 +4,10 @@
 	>wget http://node-arm.herokuapp.com/node_latest_armhf.deb ?	
 	>sudo dpkg -i node_latest_armhf.deb?
 3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp?
+3  alt) sync project from git:
+> git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
+> git pull <- sync version control after archive created
+> nmp update <- update dependencies
 4) execute project with debugger?	
 	>nodejs RemoteDebug.js server.js?
 5) execute project?	>nodejs server.js?
@@ -17,4 +21,5 @@
 7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages"??Create mysql datbase:????
 
 Notes: Set timezone: >sudo dpkg-reconfigure tzdata?Reboot: >sudo reboot
->ps - list running processes
+>ps <- list running processes
+> pidof node  <-  node process id

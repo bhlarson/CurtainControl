@@ -1,5 +1,5 @@
 ﻿console.log("Starting CurtainControl on " + process.platform);
-
+require('dotenv').config({ path: './config.env' });
 var express = require('express');
 var app = express();
 var http = require('http').Server(app);
@@ -7,8 +7,17 @@ var io = require('socket.io')(http);
 var SolarCalc = require('solar-calc');
 var schedule = require('node-schedule');
 var sdn = require('./sdn-protocol');
-//var mysql = require('mysql');
+var mysql = require('mysql');
 console.log("All External Dependancies Found");
+
+// Home database credentials
+var pool = mysql.createPool({
+    connectionLimit : 10,
+    host            : process.env.dbhost,
+    user            : process.env.dbuser,
+    //  password        : 'password',
+    database        : process.env.dbname
+});
 
 var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
     0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
@@ -70,7 +79,7 @@ var groups = [
 //    database        : 'curtaindb'
 //});
 
-var record = { address: 0x0671E4, name: "Bay East", description: "Main Bay East" };
+//var record = { address: 0x0671E4, name: "Bay East", description: "Main Bay East" };
 
 //pool.query('INSERT INTO motors SET ?', record, function (err, res) {
 //    if (err) throw err;
@@ -111,6 +120,52 @@ app.get('/GetMotors', function (req, res) {
 
 app.get('/GetGroups', function (req, res) {
     res.send(groups);
+});
+
+app.get('/GetDBMotors', function (req, res) {
+    GetMotors().then(function (motors) {
+        res.send(motors);
+    }, function (failure) {
+        res.send(failure);
+    });
+});
+
+app.get('/UpdateConfig', function(req, res) {
+    var previous = req.query.previous;
+    var update = req.query.update;
+});
+
+app.get('/GetDBGroups', function (req, res) {
+    res.send(groups);
+});
+
+app.get('/UpdateDevice', function (req, res) {
+    var prevConfig = req.query.previous;
+    var newConfig = req.query.update;
+    var sql = 'UPDATE ' + process.env.dbdevices + ' SET ? WHERE address='+prevConfig.address;
+    
+    pool.query(sql,[newConfig], function (dberr, dbres) {
+        if (dberr) {
+            res.send(dberr);
+        }
+        else {
+            res.send(dbres);
+        }
+    });
+});
+
+app.get('/AddDevice', function (req, res) {
+    var newConfig = req.query.update;
+    var sql = 'INSERT INTO ' + process.env.dbdevices + ' SET ?';
+    
+    pool.query(sql, newConfig, function (dberr, dbres) {
+        if (dberr) {
+            res.send(dberr);
+        }
+        else {
+            res.send(dbres);
+        }
+    });
 });
 
 http.listen(port, function () {
@@ -331,5 +386,18 @@ serialPort.on("open", function () {
         })
     });
 });
+
+function GetMotors() {
+    return new Promise(function (resolve, reject) {
+        var connectionString = 'SELECT * FROM `' + process.env.dbdevices +'`';
+        pool.query(connectionString, function (err, res) {
+            if (err)
+                reject(err);
+            else {
+                resolve(res);
+            }
+        });
+    });
+}
 
 module.exports = app;

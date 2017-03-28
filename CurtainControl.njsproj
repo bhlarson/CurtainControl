@@ -46,6 +46,7 @@
     <Content Include="Documents\SwitchMainUpCommand.txt" />
     <Content Include="node_modules\jquery-ui-1.12.1\jquery-ui.css" />
     <Content Include="package.json" />
+    <Content Include="config.env" />
     <Content Include="public\config.html" />
     <Content Include="public\index.html" />
     <Content Include="public\js\service.html" />
