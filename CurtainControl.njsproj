@@ -31,6 +31,7 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CurtainControl.js" />
     <Compile Include="node_modules\jquery-ui-1.12.1\external\jquery\jquery.js" />
     <Compile Include="node_modules\jquery-ui-1.12.1\jquery-ui.js" />
     <Compile Include="public\js\config.js" />

@@ -216,33 +216,53 @@ function Valid(message)
     if (message.length() > 2 && message(1) != 0x03 || message(1) != 0x20) {
         valid = false;       
     }
-    if (message.length() > 11 && message.length() == ~message(2)) {
+    if (message.length() >= 11 && ~message(2) >= 11 && ~message(2) <= 16) {
         var messageChecksum = message
         var cumputedCheckSum = CheckSum(message);
         if (messageChecksum != cumputedCheckSum) {
             valid = false;
         }
     }
-    if (message.lenght() > 16) {
+    else {
         valid = false;
     }
-
     return valid;
 }
 
-module.exports.SomfyReciveMessage = function (serialData, message, messageCallback) {
-    message = Buffer.concat([message, serialData]);
-    
+module.exports.SomfyMessage = function (message) {
+    var msg ={};
     if (!Valid(message)) {
-        return Buffer();
+        msg.err = "Invalid:"+ message;
+        if (message.length >= 11) {
+            console.log("Dumping invalid " + message);
+        }
+        return msg;
     }
     
-    if (message.lenth >= msgOverhead) {
-        // Might be a message.  Check 
-
+    if (message.length >= ~message(2)) { // Have message
+        var keys = Object.keys(module.exports.CommandEnum);
+        var key;
+        var command = ~message(1);
+        msg.length = ~message(2);
+        
+        // Command
+        for (var i = 0; i < keys.length && !key; i++) {
+            if (module.exports.CommandEnum.hasOwnProperty(keys[i]) && keys[i].value == command) {
+                msg.command = keys[i];
+            }
+        }
+        msg.src = Buffer();
+        msg.dest = Buffer();
+        for (var i = 0; i < 3; i++) {
+            msg.src.push(~message[i + 3]);
+            msg.dest.push(~message[i + 6]);
+        }
+        msg.data = Buffer();
+        for (var i = 0; i < 11-(~message(2)); i++) {
+            msg.data.push(~message[i + 9]);
+        }
     }
-
-    return message;
+    return msg;
 }
 
 
