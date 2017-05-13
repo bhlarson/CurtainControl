@@ -1,9 +1,9 @@
 # CurtainControl?Node.js control of Somfy SDN curtains and keypads??
 1) log into the raspberry pi with putty?
 2) install node.js into raspberry pi?	
-	>wget http://node-arm.herokuapp.com/node_latest_armhf.deb ?	
-	>sudo dpkg -i node_latest_armhf.deb?
-3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp?
+	>wget http://node-arm.herokuapp.com/node_latest_armhf.deb
+	>sudo dpkg -i node_latest_armhf.deb
+3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp
 3  alt) sync project from git:
 > git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
 > cd CurtainControl
