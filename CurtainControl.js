@@ -16,6 +16,10 @@ module.exports.Initialize = function (init) {
         initData = init;
         try {
             var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
+            
+            console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
+
+
             serialPort.on('data', function (data) {
                 console.log("Serial Port " + initData.portName + " Data: " + data);
                 
@@ -46,6 +50,7 @@ module.exports.Initialize = function (init) {
             });
         }
         catch (err) {
+            console.log("Serial Port Initialization error " + err);
             reject(err);
         }
     });

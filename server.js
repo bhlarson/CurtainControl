@@ -20,6 +20,8 @@ var pool = mysql.createPool({
     database        : process.env.dbname
 });
 
+console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
+
 //var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
 //    0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
 //    0x06794F, 0x067982, 0x067984, 0x067981,
@@ -99,13 +101,13 @@ var pool = mysql.createPool({
 //});
 
 
-var SerialPort;
-if (process.env.NODE_ENV == 'development') {
-    SerialPort = require('virtual-serialport');
-}
-else {
-    SerialPort = require('serialport');
-}
+//var SerialPort;
+//if (process.env.NODE_ENV == 'development') {
+//    SerialPort = require('virtual-serialport');
+//}
+//else {
+//    SerialPort = require('serialport');
+//}
 
 var port = process.env.PORT || 1337;
 app.use(express.static('public'));
@@ -339,3 +341,4 @@ function GetGroups() {
 }
 
 module.exports = app;
+console.log("Creation  successful")

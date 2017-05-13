@@ -6,18 +6,21 @@
 3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp?
 3  alt) sync project from git:
 > git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
-> git pull <- sync version control after archive created
+> cd CurtainControl
+> git pull origin master <- sync with github repository after archive created
 > nmp update <- update dependencies
-4) execute project with debugger?	
-	>nodejs RemoteDebug.js server.js?
-5) execute project?	>nodejs server.js?
+4) execute project with debugger
+	>nodejs RemoteDebug.js server.js
+5) execute project
+>nodejs server.js
 6) auto start:?	
-	a) Log into to pi as root in putty?	
+	a) Log into to pi as root in putty?
 	b) Copy  ”nodecurtain.service” to /etc/system/system	
-	c) Enable and start:?		
+	c) Enable and start:
 		$  sudo systemctl enable nodecurtain.service
 		$  sudo systemctl restart nodecurtain.service
-		$ ps aux?
+		$  sudo systemctl disable nodecurtain.service
+		$ ps aux
 7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages"??Create mysql datbase:????
 
 Notes: Set timezone: >sudo dpkg-reconfigure tzdata?Reboot: >sudo reboot
