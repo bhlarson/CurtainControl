@@ -10,9 +10,9 @@ var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
 var motors1;
 var groups;
 
-
+/*
 $(function () {
-    /*
+    
     var dateFormat = "yyyy-mm-dd",
         from = $("#from")
         .datepicker({
@@ -108,9 +108,9 @@ $(function () {
         }
     })
     .addClass("overflow");
-    */
+    
 });
-
+*/
 $('form').submit(function () {
     var direction = $("#MoveDirection").find(":selected").data("value");
     var window = $("#Window").find(":selected").data("value");

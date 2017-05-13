@@ -36,6 +36,8 @@
     <Compile Include="node_modules\jquery-ui-1.12.1\jquery-ui.js" />
     <Compile Include="public\js\config.js" />
     <Compile Include="public\js\index.js" />
+    <Compile Include="public\js\jquery-ui.js" />
+    <Compile Include="public\js\jquery.js" />
     <Compile Include="public\js\service.js" />
     <Compile Include="sdn-protocol.js" />
     <Compile Include="server.js" />
