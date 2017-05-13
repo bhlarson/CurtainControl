@@ -112,7 +112,9 @@ console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 var port = process.env.PORT || 1337;
 app.use(express.static('public'));
 app.use(express.static('node_modules/jquery-ui-1.12.1'));
-app.use(express.static('node_modules/socket.io-client/dist'));
+app.use(express.static('node_modules/socket.io-client/dist')); // Windows path
+app.use(express.static('node_modules/socket.io/node_modules/socket.io-client/dist')); // Linux path
+
 app.get('/', function (req, res) {
     res.sendFile('index.html')
 });
