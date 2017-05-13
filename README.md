@@ -9,8 +9,9 @@
 > cd CurtainControl
 > git pull origin master <- sync with github repository after archive created
 > nmp update <- update dependencies
+> sudo npm install serialport --unsafe-perm --build-from-source <-  install and build serialport
 4) execute project with debugger
-	>nodejs RemoteDebug.js server.js
+>nodejs RemoteDebug.js server.js
 5) execute project
 >nodejs server.js
 6) auto start:?	
