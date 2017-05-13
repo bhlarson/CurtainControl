@@ -21,7 +21,7 @@ module.exports.Initialize = function (init) {
 
 
             serialPort.on('data', function (data) {
-                console.log('Serial Port ' + initData.portName + ' Data: ' + data);
+                console.log('data received: ' + data.toString('hex'));
                 
                 Buffer.concat([msg, data])
                 var msg;
@@ -44,7 +44,8 @@ module.exports.Initialize = function (init) {
             serialPort.on('err', function (err) {
                 console.log("Serial Port " + initData.portName + " error: " + err);
             });            
-            serialPort.on("open", function () {
+            serialPort.on('open', function () {
+                console.log("Serial Port opened");
                 stateData.serialPort = serialPort;
                 resolve("initialized");
             });
@@ -101,12 +102,14 @@ module.exports.Start = function (action) {
             
             //    resolve(dbres);
             //});
-            
+            console.log('write ' + cmd.toString('hex'));
             serialPort.write(cmd, function (err, results) {
                 if (err) {
+                    console.log('write error ' + err);
                     reject({ result: ACTION_FAIL , error: err });
                 }
                 else {
+                    console.log('write complete');
                     resolve({ result: ACTION_COMPLETED });
                 }
             });
