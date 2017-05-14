@@ -103,7 +103,7 @@ module.exports.Start = function (action) {
             //    resolve(dbres);
             //});
             console.log('write ' + cmd.toString('hex'));
-            serialPort.write(cmd, function (err, results) {
+            serialPort.write(cmd, function (err) {
                 if (err) {
                     console.log('write error ' + err);
                     reject({ result: ACTION_FAIL , error: err });
