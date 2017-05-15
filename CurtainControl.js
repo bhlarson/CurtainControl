@@ -18,13 +18,11 @@ module.exports.Initialize = function (init) {
             var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
             
             console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
-
-
+            
+            var msg = [];
             serialPort.on('data', function (data) {
                 console.log('data received: ' + data.toString('hex'));
                 
-                Buffer.concat([msg, data])
-                var msg;
                 for (var i = 0; i < data.length; i++) {
                     msg.push(data[i]);
                 }
