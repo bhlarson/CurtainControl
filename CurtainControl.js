@@ -101,13 +101,13 @@ module.exports.Start = function (action) {
             //    resolve(dbres);
             //});
             console.log('write ' + cmd.toString('hex'));
-            serialPort.write(cmd, function (err) {
+            serialPort.write(cmd, function (err, result) {
                 if (err) {
                     console.log('write error ' + err);
                     reject({ result: ACTION_FAIL , error: err });
                 }
                 else {
-                    console.log('write complete');
+                    console.log('write result ' + result);
                     resolve({ result: ACTION_COMPLETED });
                 }
             });
