@@ -111,7 +111,6 @@ console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 
 var port = process.env.PORT || 1337;
 app.use(express.static('public'));
-//app.use(express.static('node_modules/jquery-ui-1.12.1'));
 app.use(express.static('node_modules/socket.io-client/dist')); // Windows
 app.use(express.static('node_modules/socket.io/node_modules/socket.io-client/dist')); // Linux
 
@@ -211,14 +210,9 @@ console.log("sunrise Today: ", solar.sunrise.toString());
 var solar = new SolarCalc(new Date(), 45.5, -122.8);
 console.log("sunrise ", solar.sunrise);
 
-var portStr = '/dev/ttyUSB0';
-//if (process.platform == 'win32') {
-//    portStr = 'COM5';
-//}
+//var serialPort = new SerialPort(process.env.serialport, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
 
-//var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
-
-curtains.Initialize({ portName: portStr }).then(function (result) {
+curtains.Initialize({ portName: process.env.serialport }).then(function (result) {
     console.log('curtains.Initialize ' + result);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);

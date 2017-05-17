@@ -8,43 +8,41 @@ else {
     SerialPort = require('serialport');
 }
 
-var initData = { portName: "'/dev/ttyUSB0'" };
-var stateData = {serialPort: {}};
+var initData = { portName: '/dev/ttyUSB0'};
+var state = {serialPort: {}, msg:[]};
 
 module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
         initData = init;
         try {
-            var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd'});
+            state.serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd'});
             
             console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
             
-            var msg = [];
-            serialPort.on('data', function (data) {
+            state.serialPort.on('data', function (data) {
                 console.log('data received: ' + data.toString('hex'));
                 
                 for (var i = 0; i < data.length; i++) {
-                    msg.push(data[i]);
+                    state.msg.push(data[i]);
                 }
                 
                 var parsedMsg;
-                if (msg.length < 11) {
+                if (state.msg.length < 11) {
         // Still accumulating message
                 }
                 else {
-                    parsedMsg = SerialPort.SomfyMessage(msg);
+                    parsedMsg = SerialPort.SomfyMessage(state.msg);
                     if (parsedMsg.err) { 
                     }
                     else if (parsedMsg.lenght) { 
                     }
                 }
             });
-            serialPort.on('err', function (err) {
+            state.serialPort.on('err', function (err) {
                 console.log("Serial Port " + initData.portName + " error: " + err);
             });            
-            serialPort.on('open', function () {
+            state.serialPort.on('open', function () {
                 console.log("Serial Port opened");
-                stateData.serialPort = serialPort;
                 resolve("initialized");
             });
         }
@@ -91,7 +89,7 @@ module.exports.Start = function (action) {
         }
         
         if (err) {
-            reject({ result: ACTION_FAIL , error: err });
+            reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
         } else {
             // Begin async operations
             // Prepare to receive data
@@ -101,14 +99,14 @@ module.exports.Start = function (action) {
             //    resolve(dbres);
             //});
             console.log('write ' + cmd.toString('hex'));
-            serialPort.write(cmd, function (err, result) {
+            state.serialPort.write(cmd, function (err, result) {
                 if (err) {
                     console.log('write error ' + err);
-                    reject({ result: ACTION_FAIL , error: err });
+                    reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
                 }
                 else {
                     console.log('write result ' + result);
-                    resolve({ result: ACTION_COMPLETED });
+                    resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
                 }
             });
         }

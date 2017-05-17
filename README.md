@@ -20,6 +20,7 @@
 	>wget http://node-arm.herokuapp.com/node_latest_armhf.deb
 	>sudo dpkg -i node_latest_armhf.deb
 	> node -v
+	> sudo apt-get install git
 3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp
 3  alt) sync project from git:
 > git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
