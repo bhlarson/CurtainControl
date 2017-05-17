@@ -14,6 +14,9 @@
 > sudo chmod 0755 libftd2xx.so.1.3.6
 > enable SSH from sudo raspi-config interface options
 1) log into the raspberry pi with putty
+- test serial port communication  to curtains - sunroom down:
+> echo -en '\xfc\xf0\xfd\x1\x1\x3\xff\xff\xff\xff\xff\xff\xff\x09\xe7' > /dev/ttyUSB0
+
 2) install node.js into raspberry pi?	
 > curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash -
 > sudo apt install nodejs

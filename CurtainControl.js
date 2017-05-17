@@ -13,7 +13,7 @@ var state = {serialPort: {}, msg:[]};
 
 module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
-        initData = init;
+        //initData = init;
         try {
             state.serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd'});
             
