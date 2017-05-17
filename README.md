@@ -37,9 +37,11 @@
 	b) Create a symbolic link to  ”nodecurtain.service” in /etc/systemd/system	
 		>  sudo ln nodecurtain.service /etc/systemd/system/nodecurtain.service
 	c) Enable and start:
-		$  sudo systemctl enable nodecurtain.service
-		$  sudo systemctl restart nodecurtain.service
-		$  sudo systemctl disable nodecurtain.service
+		$ sudo systemctl enable nodecurtain.service
+		$ sudo systemctl stop nodecurtain.service
+		$ sudo systemctl start nodecurtain.service
+		$ sudo systemctl restart nodecurtain.service
+		$ sudo systemctl disable nodecurtain.service
 		$ ps aux
 7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages"??Create mysql datbase:????
 
