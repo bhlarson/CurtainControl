@@ -34,7 +34,8 @@
 >nodejs server.js
 6) auto start:?	
 	a) Log into to pi as root in putty?
-	b) Copy  ”nodecurtain.service” to /etc/system/system	
+	b) Create a symbolic link to  ”nodecurtain.service” in /etc/systemd/system	
+		>  sudo ln nodecurtain.service /etc/systemd/system/nodecurtain.service
 	c) Enable and start:
 		$  sudo systemctl enable nodecurtain.service
 		$  sudo systemctl restart nodecurtain.service

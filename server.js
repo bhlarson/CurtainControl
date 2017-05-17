@@ -109,7 +109,7 @@ console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 //    SerialPort = require('serialport');
 //}
 
-var port = process.env.nodeport || 1337;
+var port = Number(process.env.nodeport) || 1337;
 app.use(express.static('public'));
 app.use(express.static('node_modules/socket.io-client/dist')); // Windows
 app.use(express.static('node_modules/socket.io/node_modules/socket.io-client/dist')); // Linux
