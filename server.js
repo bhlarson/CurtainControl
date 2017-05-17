@@ -213,7 +213,7 @@ console.log("sunrise ", solar.sunrise);
 //var serialPort = new SerialPort(process.env.serialport, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
 
 curtains.Initialize({ portName: process.env.serialport }).then(function (result) {
-    console.log('curtains.Initialize ' + result);
+    console.log('curtains.Initialize succeeded ' + result);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
 });
@@ -337,4 +337,4 @@ function GetGroups() {
 }
 
 module.exports = app;
-console.log("Creation  successful")
+console.log("CurtainControl Started")

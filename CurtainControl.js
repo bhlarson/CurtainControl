@@ -13,11 +13,11 @@ var state = {serialPort: {}, msg:[]};
 
 module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
-        //initData = init;
+        initData = init;
         try {
             state.serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd'});
             
-            console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
+            console.log("Serial Port " + initData.portName+ " object defined:" + (typeof state.serialPort !== 'undefined'));
             
             state.serialPort.on('data', function (data) {
                 console.log('data received: ' + data.toString('hex'));
@@ -42,7 +42,7 @@ module.exports.Initialize = function (init) {
                 console.log("Serial Port " + initData.portName + " error: " + err);
             });            
             state.serialPort.on('open', function () {
-                console.log("Serial Port opened");
+                console.log("Serial port " + initData.portName + " open");
                 resolve("initialized");
             });
         }
@@ -105,7 +105,7 @@ module.exports.Start = function (action) {
                     reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
                 }
                 else {
-                    console.log('write result ' + result);
+                    console.log('write succeeded');
                     resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
                 }
             });
