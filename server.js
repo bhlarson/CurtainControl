@@ -212,9 +212,9 @@ var solar = new SolarCalc(new Date(), 45.5, -122.8);
 console.log("sunrise ", solar.sunrise);
 
 var portStr = '/dev/ttyUSB0';
-if (process.platform == 'win32') {
-    portStr = 'COM5';
-}
+//if (process.platform == 'win32') {
+//    portStr = 'COM5';
+//}
 
 //var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
 

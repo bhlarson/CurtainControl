@@ -1,7 +1,7 @@
-var sdn = require('./sdn-protocol');
 
+var sdn = require('./sdn-protocol');
 var SerialPort;
-if (process.env.NODE_ENV == 'development') {
+if (process.env.simulation == 'true' ) {
     SerialPort = require('virtual-serialport');
 }
 else {
@@ -15,7 +15,7 @@ module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
         initData = init;
         try {
-            var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
+            var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd'});
             
             console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
             
