@@ -13,23 +13,18 @@
     </div>
 
 
-
-<form action="#">
-        <fieldset>
-            <label for="motorNames">Select a motor</label>
+    <fieldset>
+        <div id="MotorCommandForm">
+            <label for="motorNames">Motor:</label>
             <select name="motorNames" id="motorNames"></select>
-
-            <label for="down">Down</label>
-            <input id="down" type="checkbox" />
-
-            <label for="time">Time </label>
-            <input id="time" type="number" min=0.1 max=2.56>
-        </fieldset>
-    </form>
-
-    <script src="external/jquery/jquery.js"></script>
-    <script src="jquery-ui.js"></script>
-    <script src="./socket.io-client/socket.io.js"></script>
+            <label for="motorCommandSelect">Command:</label>
+            <select name="motorCommandSelect" id="motorCommandSelect" onchange="ConfigureCommand()"></select>
+            <div id="MotorCommandOptions"></div>
+        </div>
+        <button>Submit</button>
+    </fieldset>
+    <script src="socket.io.js"></script>
+    <script src="js/jquery.js"></script>
     <script src="js/service.js"></script>
 </body>
 </html>
