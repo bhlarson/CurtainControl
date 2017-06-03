@@ -10,7 +10,7 @@ Description=Node.js Curtain Control Server
 #Requires=After=mysql.service       # Requires the mysql service to run first
 
 [Service]
-ExecStart=/usr/bin/nodejs /home/pi/CurtainControl/server.js
+ExecStart=/usr/bin/node /home/pi/CurtainControl/server.js
 WorkingDirectory=/home/pi/CurtainControl
 Restart=on-failure
 SyslogIdentifier=CurtainControl

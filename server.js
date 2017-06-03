@@ -239,6 +239,10 @@ io.on('connection', function (socket) {
         console.log('Action ' + JSON.stringify(data));
         curtains.Start(data).then(function (result) { }, function (err) { });
     });
+    socket.on('Command', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+        console.log('Command ' + JSON.stringify(data));
+        curtains.Start(data).then(function (result) { }, function (err) { });
+    });
 });
 
     

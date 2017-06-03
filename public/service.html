@@ -21,7 +21,7 @@
             <select name="motorCommandSelect" id="motorCommandSelect" onchange="ConfigureCommand()"></select>
             <div id="MotorCommandOptions"></div>
         </div>
-        <button>Submit</button>
+        <input type="button" id="MotorCommandSubmit" onclick="MotorCommand()" value="Submit"/>
     </fieldset>
     <script src="socket.io.js"></script>
     <script src="js/jquery.js"></script>

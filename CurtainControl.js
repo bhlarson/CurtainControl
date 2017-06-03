@@ -68,7 +68,12 @@ module.exports.State = function() {
 module.exports.Start = function (action) {
     return new Promise(function (resolve, reject) {
         var cmd, err;
-        if (action.cmd == 'UpLimit' && action.type == 'motor') {
+        const srcAddr = 0x01;
+
+        if (action.cmd >= sdn.CommandEnum.CTRL_MOVE && action.cmd <= sdn.CommandEnum.GET_NETWORK_STAT) {
+            cmd = sdn.SomfyMsg(srcAddr, action.addr, action.cmd, action.data);
+        }
+        else if (action.cmd == 'UpLimit' && action.type == 'motor') {
             cmd = sdn.UpLimit(Number(action.addr));
         } else if (action.cmd == 'DownLimit' && action.type == 'motor') {
             cmd = sdn.DownLimit(Number(action.addr));
