@@ -349,7 +349,8 @@ function MotorCommand(){
     console.log("changed: " + JSON.stringify(currentCommand));
  
     var keys = Object.keys(currentCommand.data);
-    var motorData = new Uint8Array(keys.length);
+    //var motorData = new Uint8Array(keys.length);
+    var motorData = [];
 
     var i = 0;
     keys.forEach(function (key) {

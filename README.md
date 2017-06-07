@@ -40,7 +40,7 @@ iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 13
 5) execute project
 >nodejs server.js
 6) auto start:?	
-	a) Log into to pi as root in putty?
+	a) Log into to pi as root in putty
 	b) Create a symbolic link to  ”nodecurtain.service” in /etc/systemd/system	
 		>  sudo ln nodecurtain.service /etc/systemd/system/nodecurtain.service
 	c) Enable and start:
@@ -50,7 +50,7 @@ iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 13
 		$ sudo systemctl restart nodecurtain.service
 		$ sudo systemctl disable nodecurtain.service
 		$ ps aux
-7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages"??Create mysql datbase:????
+7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages" Create mysql datbase:
 
 Notes: 
 Set timezone: 

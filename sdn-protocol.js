@@ -182,6 +182,11 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     const dest_offset = 6;
     const data_offset = 9;
     
+    var dataLen = msgData.length;
+    if (!dataLen) {
+
+    }
+    
     var somfyMsg = Buffer(msgOverhead + msgData.length);
     somfyMsg[msg_offset] = ~cmd;
     somfyMsg[len_offset] = ~somfyMsg.length;
@@ -194,7 +199,7 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     somfyMsg[dest_offset + 2] = ~((destAddr & 0x00FF0000) >> 16);
     
     for (var i = 0; i < msgData.length; i++) {
-        somfyMsg[data_offset + i] = ~msgData[i];
+        somfyMsg[data_offset + i] = 0xFF & ~msgData[i];
     }
     
     var checkSum = CheckSum(somfyMsg);
