@@ -31,7 +31,7 @@ module.exports.Initialize = function (init) {
         // Still accumulating message
                 }
                 else {
-                    parsedMsg = SerialPort.SomfyMessage(state.msg);
+                    parsedMsg = sdn.SomfyMessage(state.msg);
                     if (parsedMsg.err) { 
                     }
                     else if (parsedMsg.lenght) { 
