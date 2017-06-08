@@ -213,7 +213,7 @@ function Valid(message)
 {
     var valid = true;
     if (message.length() > 0 && Commnad(~message(0)) == INVALID_COMMAD) {
-        valid == false;
+        valid = false;
     }
     if (message.length() > 1 && ~message(2) < 11 || ~message(2) > 16) {
         valid = false;
