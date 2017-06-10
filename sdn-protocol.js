@@ -1,4 +1,5 @@
 ﻿module.exports.CommandEnum = {
+    INVALID_COMMAD :  0x00,
     CTRL_MOVE : 0x01, // In
     CTRL_STOP : 0x02, // In
     CTRL_MOVETO : 0x03, // In
@@ -209,19 +210,30 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     return somfyMsg;
 };
 
+function Command(id)
+{
+    var command = INVALID_COMMAD
+    for (var key in module.exports.CommandEnum) {
+        if (module.exports.CommandEnum.hasOwnProperty(key)) {
+            command = module.exports.CommandEnum[key];
+        }
+    }
+    return command
+}
+
 function Valid(message)
 {
     var valid = true;
-    if (message.length() > 0 && Commnad(~message(0)) == INVALID_COMMAD) {
+    if (message.length > 0 && Command(~message[0]) == INVALID_COMMAD) {
         valid = false;
     }
-    if (message.length() > 1 && ~message(2) < 11 || ~message(2) > 16) {
+    if (message.length > 1 && ~message[2] < 11 || ~message[2] > 16) {
         valid = false;
     }    
-    if (message.length() > 2 && message(1) != 0x03 || message(1) != 0x20) {
+    if (message.length > 2 && message[1] != 0x03 || message[1] != 0x20) {
         valid = false;       
     }
-    if (message.length() >= 11 && ~message(2) >= 11 && ~message(2) <= 16) {
+    if (message.length >= 11 && ~message[2] >= 11 && ~message[2] <= 16) {
         var messageChecksum = message
         var cumputedCheckSum = CheckSum(message);
         if (messageChecksum != cumputedCheckSum) {
