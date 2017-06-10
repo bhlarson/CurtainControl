@@ -212,7 +212,7 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
 
 function Command(id)
 {
-    var command = INVALID_COMMAD
+    var command = module.exports.CommandEnum.INVALID_COMMAD;
     for (var key in module.exports.CommandEnum) {
         if (module.exports.CommandEnum.hasOwnProperty(key)) {
             command = module.exports.CommandEnum[key];
