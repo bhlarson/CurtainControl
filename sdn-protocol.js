@@ -225,15 +225,15 @@ function Valid(message)
 {
     var valid = true;
     if (message.length > 0 && Command(~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
-        console.log("Invalid command 0x" + ~message[0].toString(16));
+        console.log("Invalid command 0x" + Number(~message[0]).toString(16));
         valid = false;
     }
     if (message.length > 1 && ~message[2] < 11 || ~message[2] > 16) {
-        console.log("Invalid message length 0x" + ~message[2].toString(16));
+        console.log("Invalid message length 0x" + Number(~message[2]).toString(16));
         valid = false;
     }    
     if (message.length > 2 && ~message[1] != 0x02 || ~message[1] != 0x20) {
-        console.log("Invalid message unexpected resrved value 0x" + ~message[1].toString(16));
+        console.log("Invalid message unexpected resrved value 0x" + Number(~message[1]).toString(16));
         valid = false;       
     }
     if (message.length >= 11 && ~message[2] >= 11 && ~message[2] <= 16) {
@@ -256,7 +256,10 @@ module.exports.SomfyMessage = function (message) {
     if (!Valid(message)) {
         msg.err = "Invalid:"+ message;
         if (message.length >= 11) {
-            console.log("Dumping invalid 0x" + message.toString(16));
+            console.log("Dumping invalid 0x");
+            for (var i = 0; i < message.length; i++) {
+                console.log(message[i].toString(16));
+            }
         }
         return msg;
     }
