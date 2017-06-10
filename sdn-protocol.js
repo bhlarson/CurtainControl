@@ -256,10 +256,12 @@ module.exports.SomfyMessage = function (message) {
     if (!Valid(message)) {
         msg.err = "Invalid:"+ message;
         if (message.length >= 11) {
-            console.log("Dumping invalid 0x");
+            var msgStr = "0x";
             for (var i = 0; i < message.length; i++) {
-                console.log(message[i].toString(16));
+                msgStr += (message[i].toString(16));
             }
+            console.log("Dumping invalid " + msgStr);
+
         }
         return msg;
     }
