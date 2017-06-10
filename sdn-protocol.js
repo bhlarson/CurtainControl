@@ -225,22 +225,27 @@ function Valid(message)
 {
     var valid = true;
     if (message.length > 0 && Command(~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
+        console.log("Invalid command " + ~message[0]);
         valid = false;
     }
     if (message.length > 1 && ~message[2] < 11 || ~message[2] > 16) {
+        console.log("Invalid message length " + ~message[2]);
         valid = false;
     }    
-    if (message.length > 2 && message[1] != 0x03 || message[1] != 0x20) {
+    if (message.length > 2 && ~message[1] != 0x02 || ~message[1] != 0x20) {
+        console.log("Invalid message unexpected resrved value " + ~message[1]);
         valid = false;       
     }
     if (message.length >= 11 && ~message[2] >= 11 && ~message[2] <= 16) {
         var messageChecksum = message
         var cumputedCheckSum = CheckSum(message);
         if (messageChecksum != cumputedCheckSum) {
+            console.log("Invalid message checksum value " + messageChecksum + " expected " + cumputedCheckSum);
             valid = false;
         }
     }
     else {
+        console.log("Invalid message unexpected.");
         valid = false;
     }
     return valid;
