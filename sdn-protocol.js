@@ -224,7 +224,7 @@ function Command(id)
 function Valid(message)
 {
     var valid = true;
-    if (message.length > 0 && Command(~message[0]) == INVALID_COMMAD) {
+    if (message.length > 0 && Command(~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
         valid = false;
     }
     if (message.length > 1 && ~message[2] < 11 || ~message[2] > 16) {
