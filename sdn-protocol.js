@@ -239,7 +239,7 @@ function Valid(message)
     if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
         var expectedLen = (0xFF & (~message[1]));
         if (message.length >= expectedLen) {
-            var expectedChecksum = (message[expectedLen - 2]<<8)  && (0x00FF && message[expectedLen-1]);
+            var expectedChecksum = (message[expectedLen - 2]<<8)  | message[expectedLen-1];
             // Enough data to extract message
             var messageChecksum = message
             var cumputedCheckSum = CheckSum(message);
