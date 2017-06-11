@@ -51,6 +51,7 @@
     <Content Include="package.json" />
     <Content Include="config.env" />
     <Content Include="public\config.html" />
+    <Content Include="sync.sh" />
     <Content Include="public\index.html" />
     <Content Include="public\service.html" />
     <Content Include="README.md" />
