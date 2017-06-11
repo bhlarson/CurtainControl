@@ -224,24 +224,27 @@ function Command(id)
 function Valid(message)
 {
     var valid = true;
-    if (message.length > 0 && Command(~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
+    if (message.length > 0 && Command(0xff & ~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
         console.log("Invalid command 0x" + Number(0xff & ~message[0]).toString(16));
         valid = false;
     }
-    if (message.length > 1 && ~message[2] < 11 || ~message[2] > 16) {
+    if (message.length > 1 && (0xFF&(~message[1])) < 11 || (0xFF & (~message[1])) > 16) {
         console.log("Invalid message length 0x" + Number(0xff & ~message[2]).toString(16));
         valid = false;
     }    
-    if (message.length > 2 && ~message[1] != 0x02 || ~message[1] != 0x20) {
+    if (message.length > 2 && (0xFF & (~message[2])) != 0x02 &&(0xFF & (~message[2])) != 0x20) {
         console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
         valid = false;       
     }
-    if (message.length >= 11 && ~message[2] >= 11 && ~message[2] <= 16) {
-        var messageChecksum = message
-        var cumputedCheckSum = CheckSum(message);
-        if (messageChecksum != cumputedCheckSum) {
-            console.log("Invalid message checksum value 0x" + messageChecksum.toString(16) + " expected 0x" + cumputedCheckSum.toString(16));
-            valid = false;
+    if ((0xFF &(~message[1])) >= 11 &&(0xFF &(~message[1])) <= 16) {
+        if (message.length >= (0xFF & (~message[2]))) {
+            // Enough data to extract message
+            var messageChecksum = message
+            var cumputedCheckSum = CheckSum(message);
+            if (messageChecksum != cumputedCheckSum) {
+                console.log("Invalid message checksum value 0x" + messageChecksum.toString(16) + " expected 0x" + cumputedCheckSum.toString(16));
+                valid = false;
+            }
         }
     }
     else {
