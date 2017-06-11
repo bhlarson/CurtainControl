@@ -236,8 +236,10 @@ function Valid(message)
         console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
         valid = false;       
     }
-    if ((0xFF &(~message[1])) >= 11 &&(0xFF &(~message[1])) <= 16) {
-        if (message.length >= (0xFF & (~message[2]))) {
+    if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
+        var expectedLen = (0xFF & (~message[1]));
+        if (message.length >= expectedLen) {
+            var expectedChecksum = (message[expectedLen - 2]<<8)  && (0x00FF && message[expectedLen-1]);
             // Enough data to extract message
             var messageChecksum = message
             var cumputedCheckSum = CheckSum(message);
