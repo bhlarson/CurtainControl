@@ -1,4 +1,4 @@
 rm config.env
-git origin SDNProtocol
+git pull origin SDNProtocol
 cp ../config.env
 node RemoteDebug.js server.js
