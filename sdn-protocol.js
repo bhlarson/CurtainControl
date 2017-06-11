@@ -269,11 +269,11 @@ module.exports.SomfyMessage = function (message) {
         return msg;
     }
     
-    if (message.length >= ~message(2)) { // Have message
+    if (message.length >= 0xFF&(~message[1])) { // Have message
         var keys = Object.keys(module.exports.CommandEnum);
         var key;
-        var command = ~message(1);
-        msg.length = ~message(2);
+        var command = 0xFF & (~message[0]);
+        msg.length = 0xFF & (~message[1]);
         
         // Command
         for (var i = 0; i < keys.length && !key; i++) {
@@ -284,12 +284,12 @@ module.exports.SomfyMessage = function (message) {
         msg.src = Buffer();
         msg.dest = Buffer();
         for (var i = 0; i < 3; i++) {
-            msg.src.push(~message[i + 3]);
-            msg.dest.push(~message[i + 6]);
+            msg.src.push(0xFF & (~message[i + 3]));
+            msg.dest.push(0xFF & (~message[i + 6]));
         }
         msg.data = Buffer();
         for (var i = 0; i < 11-(~message(2)); i++) {
-            msg.data.push(~message[i + 9]);
+            msg.data.push(0xFF & (~message[i + 9]));
         }
     }
     return msg;
