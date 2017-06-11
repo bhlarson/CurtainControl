@@ -37,7 +37,8 @@ module.exports.Initialize = function (init) {
                         console.log("Message Error: \""+ parsedMsg.err +"\".  Flush buffer");
                         state.msg = [];
                     }
-                    else if (parsedMsg.lenght) { 
+                    else {
+                        console.log("Successfully parsed " + JSON.stringify(parsedMsg));
                     }
                 }
             });
