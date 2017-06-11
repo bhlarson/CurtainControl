@@ -34,7 +34,7 @@ module.exports.Initialize = function (init) {
                 else {
                     parsedMsg = sdn.SomfyMessage(state.msg);
                     if (parsedMsg.err) {
-                        console.log("Message Error: \""+ msg.err+"\".  Flush buffer");
+                        console.log("Message Error: \""+ parsedMsg.err +"\".  Flush buffer");
                         state.msg = [];
                     }
                     else if (parsedMsg.lenght) { 
