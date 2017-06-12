@@ -275,14 +275,15 @@ module.exports.SomfyMessage = function (message) {
         var keys = Object.keys(module.exports.CommandEnum);
         var key;
         var command = 0xFF & (~message[0]);
-        msg.length = 0xFF & (~message[1]);
-        
+        msg.length = expectedLen;
+        msg.command = module.exports.CommandEnum.INVALID_COMMAD;
         // Command
-        for (var i = 0; i < keys.length && !key; i++) {
-            if (module.exports.CommandEnum.hasOwnProperty(keys[i]) && keys[i].value == command) {
-                msg.command = keys[i];
+        for (var key in module.exports.CommandEnum) {
+            if (module.exports.CommandEnum[key] == command) {
+                msg.command = module.exports.CommandEnum[key]
             }
         }
+
         msg.src = Buffer();
         msg.dest = Buffer();
         for (var i = 0; i < 3; i++) {
