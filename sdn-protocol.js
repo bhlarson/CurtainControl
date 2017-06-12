@@ -287,12 +287,12 @@ module.exports.SomfyMessage = function (message) {
         msg.src = Buffer(3);
         msg.dest = Buffer(3);
         for (var i = 0; i < 3; i++) {
-            msg.src.push(0xFF & (~message[i + 3]));
-            msg.dest.push(0xFF & (~message[i + 6]));
+            msg.src[i] = (0xFF & (~message[i + 3]));
+            msg.dest[i] = (0xFF & (~message[i + 6]));
         }
         msg.data = [];
-        for (var i = 0; i < 11-(~message(2)); i++) {
-            msg.data.push(0xFF & (~message[i + 9]));
+        for (var i = 0; i < 11- expectedLen; i++) {
+            msg.data.push(0xFF & 0xFF &(~message[i + 9]));
         }
     }
     return msg;
