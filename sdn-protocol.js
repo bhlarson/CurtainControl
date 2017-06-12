@@ -284,8 +284,8 @@ module.exports.SomfyMessage = function (message) {
             }
         }
 
-        msg.src = Buffer();
-        msg.dest = Buffer();
+        msg.src = new Buffer();
+        msg.dest = new Buffer();
         for (var i = 0; i < 3; i++) {
             msg.src.push(0xFF & (~message[i + 3]));
             msg.dest.push(0xFF & (~message[i + 6]));
