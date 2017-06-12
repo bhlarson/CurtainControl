@@ -39,6 +39,7 @@ module.exports.Initialize = function (init) {
                     }
                     else {
                         console.log("Successfully parsed " + JSON.stringify(parsedMsg));
+                        state.msg = state.msg.slice(1, parsedMsg.length-1); 
                     }
                 }
             });
