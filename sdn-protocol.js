@@ -291,8 +291,8 @@ module.exports.SomfyMessage = function (message) {
             msg.dest[i] = (0xFF & (~message[i + 6]));
         }
         msg.data = [];
-        for (var i = 0; i < 11- expectedLen; i++) {
-            msg.data.push(0xFF & 0xFF &(~message[i + 9]));
+        for (var i = 0; i < expectedLen-11; i++) {
+            msg.data.push(0xFF &(~message[i + 9]));
         }
     }
     return msg;
