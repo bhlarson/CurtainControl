@@ -38,7 +38,7 @@ module.exports.Initialize = function (init) {
                         state.msg = [];
                     }
                     else {
-                        state.msg = state.msg.slice(1, parsedMsg.length-1); 
+                        state.msg = state.msg.slice(parsedMsg.length, state.msg.length); 
                         console.log("Successfully parsed " + JSON.stringify(parsedMsg));
                         console.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
                     }
