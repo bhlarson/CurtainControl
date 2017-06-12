@@ -38,8 +38,9 @@ module.exports.Initialize = function (init) {
                         state.msg = [];
                     }
                     else {
-                        console.log("Successfully parsed " + JSON.stringify(parsedMsg));
                         state.msg = state.msg.slice(1, parsedMsg.length-1); 
+                        console.log("Successfully parsed " + JSON.stringify(parsedMsg));
+                        consol.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
                     }
                 }
             });
