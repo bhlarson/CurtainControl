@@ -241,10 +241,9 @@ function Valid(message)
         if (message.length >= expectedLen) {
             var expectedChecksum = (message[expectedLen - 2]<<8)  | message[expectedLen-1];
             // Enough data to extract message
-            var messageChecksum = message
             var cumputedCheckSum = CheckSum(message);
-            if (messageChecksum != cumputedCheckSum) {
-                console.log("Invalid message checksum value 0x" + messageChecksum.toString(16) + " expected 0x" + cumputedCheckSum.toString(16));
+            if (cumputedCheckSum != expectedChecksum) {
+                console.log("Invalid message checksum value 0x" + cumputedCheckSum.toString(16) + " expected 0x" + expectedChecksum.toString(16));
                 valid = false;
             }
         }
