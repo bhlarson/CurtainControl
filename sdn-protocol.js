@@ -280,7 +280,7 @@ module.exports.SomfyMessage = function (message) {
         // Command
         for (var key in module.exports.CommandEnum) {
             if (module.exports.CommandEnum[key] == command) {
-                msg.command = module.exports.CommandEnum[key]
+                msg.command = key;
             }
         }
 
