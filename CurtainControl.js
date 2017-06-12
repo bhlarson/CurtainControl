@@ -40,7 +40,7 @@ module.exports.Initialize = function (init) {
                     else {
                         state.msg = state.msg.slice(1, parsedMsg.length-1); 
                         console.log("Successfully parsed " + JSON.stringify(parsedMsg));
-                        consol.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
+                        console.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
                     }
                 }
             });
