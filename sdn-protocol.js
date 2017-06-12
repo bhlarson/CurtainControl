@@ -270,7 +270,8 @@ module.exports.SomfyMessage = function (message) {
         return msg;
     }
     
-    if (message.length >= 0xFF&(~message[1])) { // Have message
+    var expectedLen = (0xFF & (~message[1]));
+    if (message.length >= expectedLen){
         var keys = Object.keys(module.exports.CommandEnum);
         var key;
         var command = 0xFF & (~message[0]);
