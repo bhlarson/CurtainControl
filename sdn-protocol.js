@@ -1,4 +1,180 @@
-﻿module.exports.CommandEnum = {
+﻿var log4js = require('log4js');
+var SerialPort;
+if (process.env.simulation == 'true') {
+    SerialPort = require('virtual-serialport');
+}
+else {
+    SerialPort = require('serialport');
+}
+
+var SP = function () {
+    this.active = false;
+    this.portName = '/dev/ttyUSB0';
+    this.serialPort = {};
+    this.message = {}
+    this.timeout = 0;
+    this.log = {};
+    this.listeners = [];
+    this.settings = { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' };
+    this.complete = [];
+    this.writeBuffer = [];
+    this.readBuffer = [];
+}
+
+SP.prototype = {
+
+    // var initData = { log: {}, portName: '/dev/ttyUSB0'};
+    Start: function (config, complete) {
+        console.log("in Input");
+        try {
+            this.log = config.log;
+            this.complete.push(complete); 
+            this.serialPort = new SerialPort(config.portName, this.settings);
+                this.serialPort.on('data', function (data) {
+                    console.log('data received: ' + data.toString('hex'));
+                    // Add data to buffer
+                    for (var i = 0; i < data.length; i++) {
+                        this.readBuffer.push(data[i]);
+                    }
+                    Evaluate();
+                });
+            this.serialPort.on('err', function (err) {
+                var result = { err: err};
+                this.complete.forEach(function callback(complete) {
+                    complete(result);
+                });
+            pa});
+            this.serialPort.on('open', function () {
+            });
+        }
+        catch (err) {
+            console.log("Serial Port Initialization error " + err);
+            reject(err);
+        }
+    },
+
+    Stop: function (config) {
+        console.log("in Input");
+        if (this.id) {
+            clearTimeout(this.id);
+            this.id = 0;
+            var result = {};
+
+            this.complete.forEach(function callback(complete) {
+                complete(result);
+            });
+            
+        }
+    },
+
+    // var ports = { buffer: class Buffer};
+    Input: function (ports) {
+        console.log("in Input");
+        if (ports.buffer)
+        {
+            this.writeBuffer.push(ports.buffer);
+        }
+
+        //if (this.writeBuffer.length) {
+        //    this.serialPort.write(ports.buffer, function (err, result) {
+        //        if (err) {
+        //            console.log('write error ' + err);
+        //            //reject({ result: module.exports.CompleteEnum.ACTION_FAIL, error: err });
+        //        }
+        //        else {
+        //            console.log('write succeeded');
+        //            //resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
+        //        }
+        //    });
+
+        //}
+        this.Evaluate();
+    },
+
+    Output: function (listener) {
+        console.log("in Output");
+        this.listeners.push(listener);
+    },
+
+    RemoveOutput: function (listener) {
+        console.log("in RemoveOutput");
+        for (var i = this.listeners.length - 1; i >= 0; i--) {
+            if (this.listeners[i] === listener) {
+                this.listeners.splice(i, 1);
+            }
+        }
+    },
+
+    Evaluate: function () {
+        console.log('in Evaluate');
+        while (this.writeBuffer.length > 0) {
+            var sendBuffer = this.writeBuffer.shift()
+            this.serialPort.write(sendBuffer, function (err, result) {
+                if (err) {
+                    console.log('write error ' + err);
+                    //reject({ result: module.exports.CompleteEnum.ACTION_FAIL, error: err });
+                }
+                else {
+                    console.log('serial write ' + sendBuffer.inspect());
+                }
+            });
+        }
+
+        if (this.readBuffer.length())
+        {
+            var msgLen = this.readBuffer.length;
+
+            // Add data to buffer
+            for (var i = 0; i < data.length; i++) {
+                this.readBuffer.push(data[i]);
+            }
+
+            // Send buffer to listeners
+            if (this.listeners) {
+                var ports = { serialData: this.msg };
+                this.listeners.forEach(function (listener) {
+                    listener.input(ports);
+                });
+            }
+            this.msg.splice(0, msgLen); // Remove sent message
+        }
+    }
+};
+
+exports.SP = SP;
+
+var CurtainMove = function () {
+    this.id = 0;
+    this.timeout = 0;
+    this.log = {};
+}
+
+CurtainMove.prototype = {
+    Start: function (config, complete) {
+        this.log = config.log;
+        if (config.timeout) {
+            this.timeout = config.timeout;
+        }
+        this.id = setTimeout(() => {
+            var result = {};
+            complete(result);
+        }, this.timeout)
+        this.log.info(this);
+    },
+
+    Stop: function (config, complete) {
+        if (this.id) {
+            clearTimeout(this.id);
+            this.id = 0;
+            var result = {};
+            complete(result);
+        }
+    }
+};
+
+exports.CurtainMove = CurtainMove;
+
+module.exports.CommandEnum = {
     INVALID_COMMAD :  0x00,
     CTRL_MOVE : 0x01, // In
     CTRL_STOP : 0x02, // In

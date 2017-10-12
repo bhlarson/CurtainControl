@@ -1,17 +1,10 @@
-﻿var socket = io();
-socket.io._timeout = 30000;
-var motors;
-
-$(function () {
-    
-    
-    $.get("/GetMotors", function (serverMotors) {
-        motors = serverMotors;
-        
-        
-        motors.forEach(function (motor, i) {
-            $("#motorNames").append($("<option></option>").val(i).html(motor.name));
+﻿var socket = io(); socket.io._timeout = 30000; var motors;
+var groups;  window.onload = Init;
+function Init() {
+    $.get("GetMotors", function (serverMotors) {
+        $.get("GetGroups", function (serverGroups) {
+            motors = serverMotors;
+            groups = serverGroups;
         });
-        $("#motorNames")[0].selectedIndex = 0;
     });
-}); function SendToServer() {   console.log("INSELECT");   } 
+}; function SendToServer() {   console.log("INSELECT");   } 
