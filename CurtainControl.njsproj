@@ -64,6 +64,20 @@
     <Folder Include="node_modules\jquery-ui-1.12.1\external\jquery\" />
     <Folder Include="public\" />
     <Folder Include="public\js\" />
+    <Folder Include="typings\" />
+    <Folder Include="typings\globals\" />
+    <Folder Include="typings\globals\node\" />
+    <Folder Include="typings\modules\" />
+    <Folder Include="typings\modules\dotenv\" />
+    <Folder Include="typings\modules\express\" />
+    <Folder Include="typings\modules\mysql\" />
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptCompile Include="typings\globals\node\index.d.ts" />
+    <TypeScriptCompile Include="typings\index.d.ts" />
+    <TypeScriptCompile Include="typings\modules\dotenv\index.d.ts" />
+    <TypeScriptCompile Include="typings\modules\express\index.d.ts" />
+    <TypeScriptCompile Include="typings\modules\mysql\index.d.ts" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />

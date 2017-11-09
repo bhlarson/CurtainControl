@@ -1,38 +1,1 @@
-﻿<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-
-
-<head>
-    <meta charset="utf-8" />
-    <title>Curtain Service</title>
-</head>
-
-<body>
-
-<div>
-    <input type="button" id="Main" onclick="location.href='index.html'" value="Main" />
-    <input type="button" id="Service" onclick="location.href='config.html'" value="Configuration" />
-    <input type="button" id="Nathan" onclick="location.href='serviceNL.html'" value="Nathan" />
-</div>
-
-<form action="#">
-        <fieldset>
-<label for="motorNames">Select a motor</label>
-            <select name="motorNames" id="motorNames"></select>
-        </fieldset>
-    </form>
-    <div></div>
-    <div>
-        <button id="SendToServer" onclick="SendToServer()">Send</button>
-    </div>
-    <script src="external/jquery/jquery.js"></script>
-
-    <script src="jquery-ui.js"></script>
-
-    <script src="./socket.io-client/socket.io.js"></script>
-
-    <script src="js/serviceNL.js"></script>
-
-</body>
-
-</html>
+﻿<!DOCTYPE html> <html xmlns="http://www.w3.org/1999/xhtml">   <head>     <meta charset="utf-8" />     <title>Curtain Service</title> </head>  <body>  <div>     <input type="button" id="Main" onclick="location.href='index.html'" value="Main" />     <input type="button" id="Configuration" onclick="location.href='config.html'" value="Configuration" />     <input type="button" id="Service" onclick="location.href='service.html'" value="Service" /> </div>  <form action="#">         <fieldset> <label for="motorNames">Select a motor</label>             <select name="motorNames" id="motorNames"></select>         </fieldset>     </form>     <div></div>     <div>         <button id="SendToServer" onclick="SendToServer()">Send</button>     </div>      <script src="socket.io.js"></script>     <script src="js/jquery.js"></script>     <script src="js/service.js"></script>  </body>  </html>

@@ -7,15 +7,6 @@ const cmdLog = log4js.getLogger('command');
 
 var sdn = require('./sdn-protocol');
 var SDNPort = sdn.SP;
-//var SerialPort;
-//if (process.env.simulation == 'true' ) {
-//    SerialPort = require('virtual-serialport');
-//}
-//else {
-//    SerialPort = require('serialport');
-//}
-
-
 var initData = { portName: '/dev/ttyUSB0', log: {}};
 var state = { serialPort: {}, msg: [] };
 
@@ -24,33 +15,7 @@ module.exports.Initialize = function (init) {
         initData = init;
         state.msg = new Array();
         try {
-            //state.serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
             state.serialPort = new SDNPort();
-
-            //state.serialPort.Output(function (serialData) {
-            //    console.log('data received: ' + data.toString('hex'));
-
-            //    for (var i = 0; i < data.length; i++) {
-            //        state.msg.push(data[i]);
-            //    }
-
-            //    var parsedMsg;
-            //    if (state.msg.length < 11) {
-            //        // Still accumulating message
-            //    }
-            //    else {
-            //        parsedMsg = sdn.SomfyMessage(state.msg);
-            //        if (parsedMsg.err) {
-            //            console.log("Message Error: \"" + parsedMsg.err + "\".  Flush buffer");
-            //            state.msg = [];
-            //        }
-            //        else {
-            //            state.msg = state.msg.slice(parsedMsg.length, state.msg.length);
-            //            console.log("Successfully parsed " + JSON.stringify(parsedMsg));
-            //            console.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
-            //        }
-            //    }
-            //});
 
             var config = { log: init.log, portName: init.portName }
             state.serialPort.Start(config, function (result) {
@@ -60,37 +25,6 @@ module.exports.Initialize = function (init) {
             console.log("Serial Port " + initData.portName + " object defined:" + (typeof state.serialPort !== 'undefined'));
             resolve("initialized");
             
-        //    state.serialPort.on('data', function (data) {
-        //        console.log('data received: ' + data.toString('hex'));
-                
-        //        for (var i = 0; i < data.length; i++) {
-        //            state.msg.push(data[i]);
-        //        }
-                
-        //        var parsedMsg;
-        //        if (state.msg.length < 11) {
-        //// Still accumulating message
-        //        }
-        //        else {
-        //            parsedMsg = sdn.SomfyMessage(state.msg);
-        //            if (parsedMsg.err) {
-        //                console.log("Message Error: \""+ parsedMsg.err +"\".  Flush buffer");
-        //                state.msg = [];
-        //            }
-        //            else {
-        //                state.msg = state.msg.slice(parsedMsg.length, state.msg.length); 
-        //                console.log("Successfully parsed " + JSON.stringify(parsedMsg));
-        //                console.log("Removing " + parsedMsg.length + " new length " + state.msg.length);
-        //            }
-        //        }
-        //    });
-        //    state.serialPort.on('err', function (err) {
-        //        console.log("Serial Port " + initData.portName + " error: " + err);
-        //    });            
-        //    state.serialPort.on('open', function () {
-        //        console.log("Serial port " + initData.portName + " open");
-        //        resolve("initialized");
-        //    });
             resolve("initialized");
         }
         catch (err) {
@@ -106,33 +40,6 @@ module.exports.CompleteEnum = {
     ACTION_FAIL : 0x02, // Stop requested    
 };
 
-
-
-//module.exports.State = function() {
-//    return state;
-//}
-
-//module.exports.ActionStr = function (initData) {
-//    return new Promise(function (resolve, reject) {
-//        init = initData;
-//        state = { count: 0 };
-//        result = {succeeded:false};
-//        GetState = function () {
-//            return state;
-//        };
-        
-//        IntervalComplete = function () {
-//            console.log("Interval alive count " + state.count);
-//            if (state.count > 30) {
-//                clearInterval(state.interval);
-//                console.log("Action complete");
-//                resolve(result);
-//            };
-//            state.count++;
-//        };
-//        state.interval = setInterval(IntervalComplete, 2000);
-//    });
-//}
 
 module.exports.Start = function (action) {
     return new Promise(function (resolve, reject) {
