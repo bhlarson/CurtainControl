@@ -138,8 +138,6 @@ console.log("sunrise Today: ", solar.sunrise.toString());
 var solar = new SolarCalc(new Date(), 45.5, -122.8);
 console.log("sunrise ", solar.sunrise);
 
-//var serialPort = new SerialPort(process.env.serialport, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
-
 curtains.Initialize({ portName: process.env.serialport }).then(function (result) {
     console.log('curtains.Initialize succeeded ' + result);
 }, function (err) {

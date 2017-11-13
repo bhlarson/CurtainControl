@@ -24,8 +24,6 @@ module.exports.Initialize = function (init) {
             
             console.log("Serial Port " + initData.portName + " object defined:" + (typeof state.serialPort !== 'undefined'));
             resolve("initialized");
-            
-            resolve("initialized");
         }
         catch (err) {
             console.log("Serial Port Initialization error " + err);
