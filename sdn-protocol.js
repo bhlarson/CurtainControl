@@ -120,7 +120,7 @@ SP.prototype = {
             });
         }
 
-        if (this.readBuffer.length())
+        if (this.readBuffer.length)
         {
             var msgLen = this.readBuffer.length;
 
