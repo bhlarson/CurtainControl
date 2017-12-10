@@ -242,8 +242,23 @@ CommandEnum = {
         }
     },
     
-    GET_LOCK : {msg:0x4B, name:"", bytes: 4, data: {}},
-    SET_LOCK : {msg:0x5B, name:"", bytes: 4, data: {}},
+    GET_LOCK : {msg:0x4B, name:"Get Lock", bytes: 0, data: {}},
+    SET_LOCK: {
+        msg: 0x5B, name: "Set Lock", bytes: 3, data: {
+            Location: {
+                name: "Type", bytes: 1, values: {
+                    0: "Lock Up",
+                    1: "Lock Down",
+                    2: "Lock Current",
+                    3: "Lock IP",
+                    4: "Unlock"
+                }
+            },
+            IP: { name: "Duration", bytes: 1, min: 0x01, max: 0xFF },
+            Priority: {
+                name: "Priority", bytes: 1, min: 0x01, max: 0x64}
+        }
+    },
     
     GET_NODE_ADDR : {msg:0x50, name:"", bytes: 4, data: {}},
     GET_GROUP_ADDR : {msg:0x51, name:"", bytes: 4, data: {}},
