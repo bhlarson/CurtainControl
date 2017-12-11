@@ -271,6 +271,10 @@ function GetGroups() {
 module.exports = app;
 console.log("CurtainControl Started")
 
+sdn.Output(function sdnData(data) {
+    ioSocket.emit('Message', data.toString());
+});
+
 var CurtainMove = sdn.CurtainMove;
 
 var move = new CurtainMove();

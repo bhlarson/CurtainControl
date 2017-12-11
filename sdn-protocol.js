@@ -131,9 +131,9 @@ SP.prototype = {
 
             // Send buffer to listeners
             if (this.listeners) {
-                var ports = { serialData: this.msg };
+                var inputData = { serialData: this.msg };
                 this.listeners.forEach(function (listener) {
-                    listener.input(ports);
+                    listener(inputData);
                 });
             }
             this.msg.splice(0, msgLen); // Remove sent message

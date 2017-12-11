@@ -138,7 +138,24 @@ CommandEnum = {
     SET_MOTOR_DIRECTION : {msg:0x12, name:"SET_MOTOR_DIRECTION", bytes: 4, data: {}}, // In
     SET_MOTOR_ROLLING_SPEED : {msg:0x13, name:"SET_MOTOR_ROLLING_SPEED", bytes: 4, data: {}}, // In
     SET_MOTOR_IP : {msg:0x15, name:"SET_MOTOR_IP", bytes: 4, data: {}}, // In
-    POST_DCT_LOCK : {msg:0x17, name:"POST_DCT_LOCK", bytes: 4, data: {}},
+    SET_DCT_LOCK: {
+        msg: 0x17, name: "SET_DCT_LOCK", bytes: 3, data: {
+            Location: {
+                name: "Type", bytes: 1, values: {
+                    0: "Unlock",
+                    1: "Lock"
+                }
+            },
+            DCT_Index: {
+                name: "DCT_Index", bytes: 1, values: {
+                    0: "All DCT inputs",
+                    1: "DCT input number"
+                }},
+            Priority: {
+                name: "Priority", bytes: 1, min: 0x01, max: 0xFF
+            }
+        }
+    },
     
     GET_MOTOR_LIMITS : {msg:0x21, name:"GET_MOTOR_LIMITS", bytes: 0, data: {}},
     GET_MOTOR_DIRECTION : {msg:0x22, name:"GET_MOTOR_DIRECTION", bytes: 0, data: {}},
@@ -256,7 +273,7 @@ CommandEnum = {
             },
             IP: { name: "Duration", bytes: 1, min: 0x01, max: 0xFF },
             Priority: {
-                name: "Priority", bytes: 1, min: 0x01, max: 0x64}
+                name: "Priority", bytes: 1, min: 0x01, max: 0xFF}
         }
     },
     
@@ -397,3 +414,8 @@ function MotorCommand(){
     console.log(command);
     socket.emit('Action', command);
 }
+
+socket.on('Message', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+    var msg = document.getElementById('sdnmsg');
+    msg.value += (JSON.stringify(data) + '\n');
+});
