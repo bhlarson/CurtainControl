@@ -15,7 +15,7 @@ module.exports.Initialize = function (init) {
         initData = init;
         state.msg = new Array();
         try {
-            state.serialPort = new SDNPort();
+            state.serialPort = sdn.NewSP();
 
             var config = { log: init.log, portName: init.portName }
             state.serialPort.Start(config, function (result) {
@@ -109,3 +109,7 @@ module.exports.Start = function (action) {
 }
 
 module.exports.Stop = function (stopData) { }
+
+module.exports.Output = function (dataCallback) {
+    state.serialPort.Output(dataCallback);
+}

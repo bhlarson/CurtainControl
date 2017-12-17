@@ -416,6 +416,10 @@ function MotorCommand(){
 }
 
 socket.on('Message', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+    var dataStr = '';
+    for (var i = 0; i < data.val.length; i++)
+        dataStr += data.val[i].toString(16);
+    console.log('data received: ' + dataStr);
     var msg = document.getElementById('sdnmsg');
-    msg.value += (JSON.stringify(data) + '\n');
+    msg.value += dataStr;
 });

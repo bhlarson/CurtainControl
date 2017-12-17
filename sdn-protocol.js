@@ -30,14 +30,23 @@ SP.prototype = {
             this.log = config.log;
             this.complete.push(complete); 
             this.serialPort = new SerialPort(config.portName, this.settings);
-                this.serialPort.on('data', function (data) {
-                    console.log('data received: ' + data.toString('hex'));
-                    // Add data to buffer
-                    for (var i = 0; i < data.length; i++) {
-                        this.readBuffer.push(data[i]);
-                    }
-                    Evaluate();
-                });
+            var self = this;
+            this.serialPort.on('data', function (data) {  // => Preserves this
+                console.log('data received: ' + data.toString('hex'));
+                // Add data to buffer
+                for (var i = 0; i < data.length; i++)
+                    self.readBuffer.push(data[i]);
+                console.log('readBuffer data: ' + self.readBuffer.toString());
+                var msgLen = self.readBuffer.length; // Initially send full buffer.  Later, send full message.
+                // Send buffer to listeners
+                if (msgLen > 0 && self.listeners) {
+                    var inputData = { val: self.readBuffer.splice(0, msgLen) };
+                    self.listeners.forEach(function (listener) {
+                        listener(inputData);
+                    });
+                }
+
+            });
             this.serialPort.on('err', function (err) {
                 var result = { err: err};
                 this.complete.forEach(function callback(complete) {
@@ -119,29 +128,12 @@ SP.prototype = {
                 }
             });
         }
-
-        if (this.readBuffer.length)
-        {
-            var msgLen = this.readBuffer.length;
-
-            // Add data to buffer
-            for (var i = 0; i < data.length; i++) {
-                this.readBuffer.push(data[i]);
-            }
-
-            // Send buffer to listeners
-            if (this.listeners) {
-                var inputData = { serialData: this.msg };
-                this.listeners.forEach(function (listener) {
-                    listener(inputData);
-                });
-            }
-            this.msg.splice(0, msgLen); // Remove sent message
-        }
     }
 };
 
-exports.SP = SP;
+module.exports.NewSP = function() {
+    return new SP();
+}
 
 var CurtainMove = function () {
     this.id = 0;
@@ -172,7 +164,9 @@ CurtainMove.prototype = {
     }
 };
 
-exports.CurtainMove = CurtainMove;
+module.exports.NewCurtainMove = function () {
+    return new CurtainMove();
+}
 
 module.exports.CommandEnum = {
     INVALID_COMMAD :  0x00,

@@ -146,7 +146,6 @@ curtains.Initialize({ portName: process.env.serialport }).then(function (result)
 
 var broadcast = 0xFFFFFF;
 
-
 io.on('connection', function (socket) {
     socket.broadcast.emit('Server Connected');
     socket.on('disconnect', function () {
@@ -170,6 +169,10 @@ io.on('connection', function (socket) {
     socket.on('Command', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
         console.log('Command ' + JSON.stringify(data));
         curtains.Start(data).then(function (result) { }, function (err) { });
+    });
+
+    curtains.Output(function (data) {
+        socket.emit('Message', data);
     });
 });
 
@@ -270,30 +273,3 @@ function GetGroups() {
 
 module.exports = app;
 console.log("CurtainControl Started")
-
-sdn.Output(function sdnData(data) {
-    ioSocket.emit('Message', data.toString());
-});
-
-var CurtainMove = sdn.CurtainMove;
-
-var move = new CurtainMove();
-var move2 = new CurtainMove();
-var move3 = new CurtainMove();
-cmdLog.info(move);
-
-var startConfig = { log: cmdLog, timeout: 2000 };
-move.Start(startConfig, function (result) {
-    var startConfig2 = { log: cmdLog, timeout: 1000 };
-    move2.Start(startConfig2, function (result2) {
-    });
-    var startConfig3 = { log: cmdLog, timeout: 3000 };
-    move3.Start(startConfig3, function (result3) {
-        cmdLog.info('move3 complete');
-        move.Start(startConfig, function (result) {
-        });
-    });
-});
-
-
-
