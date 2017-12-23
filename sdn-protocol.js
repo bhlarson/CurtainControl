@@ -37,15 +37,17 @@ SP.prototype = {
                 for (var i = 0; i < data.length; i++)
                     self.readBuffer.push(data[i]);
                 console.log('readBuffer data: ' + self.readBuffer.toString());
-                var msgLen = self.readBuffer.length; // Initially send full buffer.  Later, send full message.
-                // Send buffer to listeners
-                if (msgLen > 0 && self.listeners) {
-                    var inputData = { val: self.readBuffer.splice(0, msgLen) };
-                    self.listeners.forEach(function (listener) {
-                        listener(inputData);
-                    });
-                }
 
+                message = SomfyMessage(self.readBuffer);
+
+                if (message.err || message.cmd) {
+                    // Send buffer to listeners
+                    if (self.listeners) {
+                        self.listeners.forEach(function (listener) {
+                            listener(message);
+                        });
+                    }
+                }
             });
             this.serialPort.on('err', function (err) {
                 var result = { err: err};
@@ -128,6 +130,84 @@ SP.prototype = {
                 }
             });
         }
+    },
+
+    Valid: function(message)
+    {
+        var valid = true;
+        if (message.length > 0 && Command(0xff & ~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
+            console.log("Invalid command 0x" + Number(0xff & ~message[0]).toString(16));
+            valid = false;
+        }
+        if (message.length > 1 && (0xFF & (~message[1])) < 11 || (0xFF & (~message[1])) > 16) {
+            console.log("Invalid message length 0x" + Number(0xff & ~message[2]).toString(16));
+            valid = false;
+        }
+        if (message.length > 2 && (0xFF & (~message[2])) != 0x02 && (0xFF & (~message[2])) != 0x20) {
+            console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
+            valid = false;
+        }
+        if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
+            var expectedLen = (0xFF & (~message[1]));
+            if (message.length >= expectedLen) {
+                var expectedChecksum = (message[expectedLen - 2] << 8) | message[expectedLen - 1];
+                // Enough data to extract message
+                var cumputedCheckSum = CheckSum(message);
+                if (cumputedCheckSum != expectedChecksum) {
+                    console.log("Invalid message checksum value 0x" + cumputedCheckSum.toString(16) + " expected 0x" + expectedChecksum.toString(16));
+                    valid = false;
+                }
+            }
+        }
+        else {
+            console.log("Invalid message unexpected.");
+            valid = false;
+        }
+        return valid;
+    },
+
+    SomfyMessage: function (message) {
+        var msg = {};
+        if (!Valid(message)) {
+            msg.err = self.readBuffer.splice(0, message.length);
+            if (message.length >= 11) {
+                var msgStr = "0x";
+                for (var i = 0; i < message.length; i++) {
+                    msgStr += (message[i].toString(16));
+                }
+                console.log("Dumping invalid " + msgStr);
+
+            }
+            return msg;
+        }
+        else if (message >= 11) {
+            var expectedLen = (0xFF & (~message[1]));
+            if (message.length >= expectedLen) {
+                var keys = Object.keys(module.exports.CommandEnum);
+                var key;
+                var command = 0xFF & (~message[0]);
+                msg.length = expectedLen;
+                msg.command = module.exports.CommandEnum.INVALID_COMMAD;
+                // Command
+                for (var key in module.exports.CommandEnum) {
+                    if (module.exports.CommandEnum[key] == command) {
+                        msg.command = key;
+                    }
+                }
+
+                msg.src = [];
+                msg.dest = [];
+                for (var i = 0; i < 3; i++) {
+                    msg.src.push(0xFF & (~message[i + 3]));
+                    msg.dest.push(0xFF & (~message[i + 6]));
+                }
+                for (var i = 0; i < expectedLen - 11; i++) {
+                    msg.data.push(0xFF & (~message[i + 9]));
+                }
+                msg.hex = message.splice(0, expectedLen); // Remove processed data
+            }
+        }
+        return msg;
     }
 };
 
@@ -389,83 +469,6 @@ function Command(id)
         }
     }
     return command
-}
-
-function Valid(message)
-{
-    var valid = true;
-    if (message.length > 0 && Command(0xff & ~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
-        console.log("Invalid command 0x" + Number(0xff & ~message[0]).toString(16));
-        valid = false;
-    }
-    if (message.length > 1 && (0xFF&(~message[1])) < 11 || (0xFF & (~message[1])) > 16) {
-        console.log("Invalid message length 0x" + Number(0xff & ~message[2]).toString(16));
-        valid = false;
-    }    
-    if (message.length > 2 && (0xFF & (~message[2])) != 0x02 &&(0xFF & (~message[2])) != 0x20) {
-        console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
-        valid = false;       
-    }
-    if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
-        var expectedLen = (0xFF & (~message[1]));
-        if (message.length >= expectedLen) {
-            var expectedChecksum = (message[expectedLen - 2]<<8)  | message[expectedLen-1];
-            // Enough data to extract message
-            var cumputedCheckSum = CheckSum(message);
-            if (cumputedCheckSum != expectedChecksum) {
-                console.log("Invalid message checksum value 0x" + cumputedCheckSum.toString(16) + " expected 0x" + expectedChecksum.toString(16));
-                valid = false;
-            }
-        }
-    }
-    else {
-        console.log("Invalid message unexpected.");
-        valid = false;
-    }
-    return valid;
-}
-
-module.exports.SomfyMessage = function (message) {
-    var msg ={};
-    if (!Valid(message)) {
-        msg.err = "Invalid:"+ message;
-        if (message.length >= 11) {
-            var msgStr = "0x";
-            for (var i = 0; i < message.length; i++) {
-                msgStr += (message[i].toString(16));
-            }
-            console.log("Dumping invalid " + msgStr);
-
-        }
-        return msg;
-    }
-    
-    var expectedLen = (0xFF & (~message[1]));
-    if (message.length >= expectedLen){
-        var keys = Object.keys(module.exports.CommandEnum);
-        var key;
-        var command = 0xFF & (~message[0]);
-        msg.length = expectedLen;
-        msg.command = module.exports.CommandEnum.INVALID_COMMAD;
-        // Command
-        for (var key in module.exports.CommandEnum) {
-            if (module.exports.CommandEnum[key] == command) {
-                msg.command = key;
-            }
-        }
-
-        msg.src = Buffer(3);
-        msg.dest = Buffer(3);
-        for (var i = 0; i < 3; i++) {
-            msg.src[i] = (0xFF & (~message[i + 3]));
-            msg.dest[i] = (0xFF & (~message[i + 6]));
-        }
-        msg.data = [];
-        for (var i = 0; i < expectedLen-11; i++) {
-            msg.data.push(0xFF &(~message[i + 9]));
-        }
-    }
-    return msg;
 }
 
 

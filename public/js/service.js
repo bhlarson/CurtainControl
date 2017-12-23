@@ -292,9 +292,6 @@ function Init() {
             motors = serverMotors;
             groups = serverGroups;
             
-            motors.forEach(function (motor, i) {
-                $("#motorNames").append($("<option></option>").val(i).html(motor.name));
-            });
             $("#motorNames")[0].selectedIndex = 0;
             
             var i = 0;
@@ -403,8 +400,9 @@ function MotorCommand(){
             }
         }
     });
-
-
+    console.log("motors: " + motors.length);
+    console.log("motor index " + document.getElementById("motorNames").selectedIndex);
+    console.log("motor name: " + motors[document.getElementById("motorNames").selectedIndex].name);
     var command = {
         cmd: currentCommand.msg, 
         type: 'motor', 
