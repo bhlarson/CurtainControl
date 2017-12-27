@@ -40,7 +40,7 @@ SP.prototype = {
 
                 self.SomfyMessage.call(self, self.readBuffer);
 
-                if (self.message.err || self.message.cmd) {
+                if (self.message.err || self.message.command) {
                     // Send buffer to listeners
                     if (self.listeners) {
                         self.listeners.forEach(function (listener) {
