@@ -36,9 +36,9 @@ SP.prototype = {
                 // Add data to buffer
                 for (var i = 0; i < data.length; i++)
                     self.readBuffer.push(data[i]);
-                console.log('readBuffer data: ' + self.readBuffer.toString());
+                console.log('readBuffer data: ' + self.readBuffer.toString('hex'));
 
-                message = SomfyMessage(self.readBuffer);
+                message = self.SomfyMessage.call(self, self.readBuffer);
 
                 if (message.err || message.cmd) {
                     // Send buffer to listeners
@@ -139,15 +139,15 @@ SP.prototype = {
             console.log("Invalid command 0x" + Number(0xff & ~message[0]).toString(16));
             valid = false;
         }
-        if (message.length > 1 && (0xFF & (~message[1])) < 11 || (0xFF & (~message[1])) > 16) {
+        if (message.length > 1 && ((0xFF & (~message[1])) < 11 || (0xFF & (~message[1])) > 16)) {
             console.log("Invalid message length 0x" + Number(0xff & ~message[2]).toString(16));
             valid = false;
         }
-        if (message.length > 2 && (0xFF & (~message[2])) != 0x02 && (0xFF & (~message[2])) != 0x20) {
+        if (message.length > 2 && ((0xFF & (~message[2])) != 0x02 && (0xFF & (~message[2])) != 0x20)) {
             console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
             valid = false;
         }
-        if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
+        if (message.length > 1 && ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16)) {
             var expectedLen = (0xFF & (~message[1]));
             if (message.length >= expectedLen) {
                 var expectedChecksum = (message[expectedLen - 2] << 8) | message[expectedLen - 1];
@@ -159,17 +159,13 @@ SP.prototype = {
                 }
             }
         }
-        else {
-            console.log("Invalid message unexpected.");
-            valid = false;
-        }
         return valid;
     },
 
     SomfyMessage: function (message) {
         var msg = {};
-        if (!Valid(message)) {
-            msg.err = self.readBuffer.splice(0, message.length);
+        if (!this.Valid(message)) {
+            msg.err = this.readBuffer.splice(0, message.length);
             if (message.length >= 11) {
                 var msgStr = "0x";
                 for (var i = 0; i < message.length; i++) {
@@ -180,7 +176,7 @@ SP.prototype = {
             }
             return msg;
         }
-        else if (message >= 11) {
+        else if (message.length >= 11) {
             var expectedLen = (0xFF & (~message[1]));
             if (message.length >= expectedLen) {
                 var keys = Object.keys(module.exports.CommandEnum);

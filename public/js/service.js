@@ -264,11 +264,12 @@ CommandEnum = {
         msg: 0x5B, name: "Set Lock", bytes: 3, data: {
             Location: {
                 name: "Type", bytes: 1, values: {
-                    0: "Lock Up",
-                    1: "Lock Down",
-                    2: "Lock Current",
-                    3: "Lock IP",
-                    4: "Unlock"
+                    0: "Lock Current",
+                    1: "Lock Up ",
+                    2: "Lock Down",
+                    3: ""
+                    4: "Lock IP",
+                    5: "Unlock"
                 }
             },
             IP: { name: "Duration", bytes: 1, min: 0x01, max: 0xFF },
