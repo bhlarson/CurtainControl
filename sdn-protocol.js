@@ -38,13 +38,13 @@ SP.prototype = {
                     self.readBuffer.push(data[i]);
                 console.log('readBuffer data: ' + self.readBuffer.toString('hex'));
 
-                message = self.SomfyMessage.call(self, self.readBuffer);
+                self.SomfyMessage.call(self, self.readBuffer);
 
-                if (message.err || message.cmd) {
+                if (self.message.err || self.message.cmd) {
                     // Send buffer to listeners
                     if (self.listeners) {
                         self.listeners.forEach(function (listener) {
-                            listener(message);
+                            listener(self.smessage);
                         });
                     }
                 }
@@ -205,7 +205,7 @@ SP.prototype = {
                 msg.hex = message.splice(0, expectedLen); // Remove processed data
             }
         }
-        return msg;
+        this.message = msg;
     }
 };
 
