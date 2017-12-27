@@ -193,6 +193,8 @@ SP.prototype = {
 
                 msg.src = [];
                 msg.dest = [];
+                msg.data = [];
+                msg.hex = [];
                 for (var i = 0; i < 3; i++) {
                     msg.src.push(0xFF & (~message[i + 3]));
                     msg.dest.push(0xFF & (~message[i + 6]));
