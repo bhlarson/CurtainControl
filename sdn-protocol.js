@@ -38,13 +38,12 @@ SP.prototype = {
                     self.readBuffer.push(data[i]);
                 console.log('readBuffer data: ' + self.readBuffer.toString('hex'));
 
-                self.SomfyMessage.call(self, self.readBuffer);
-
-                if (self.message.err || self.message.command) {
+                var msg = self.SomfyMessage.call(self, self.readBuffer);
+                if (msg.err || msg.command) {
                     // Send buffer to listeners
                     if (self.listeners) {
                         self.listeners.forEach(function (listener) {
-                            listener(self.smessage);
+                            listener(msg);
                         });
                     }
                 }
@@ -174,6 +173,7 @@ SP.prototype = {
                 console.log("Dumping invalid " + msgStr);
 
             }
+            this.message = msg;
             return msg;
         }
         else if (message.length >= 11) {
@@ -206,6 +206,7 @@ SP.prototype = {
             }
         }
         this.message = msg;
+        return msg;
     }
 };
 
