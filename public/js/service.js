@@ -267,7 +267,7 @@ CommandEnum = {
                     0: "Lock Current",
                     1: "Lock Up ",
                     2: "Lock Down",
-                    3: ""
+                    3: "",
                     4: "Lock IP",
                     5: "Unlock"
                 }
@@ -415,10 +415,6 @@ function MotorCommand(){
 }
 
 socket.on('Message', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
-    var dataStr = '';
-    for (var i = 0; i < data.val.length; i++)
-        dataStr += data.val[i].toString(16);
-    console.log('data received: ' + dataStr);
     var msg = document.getElementById('sdnmsg');
-    msg.value += dataStr;
+    msg.value += JSON.stringify(data);
 });

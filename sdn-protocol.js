@@ -279,7 +279,8 @@ module.exports.CommandEnum = {
     POST_FACTORY_DEFAULT : 0x3F,
 
     GET_LOCK :  0x4B,
-    SET_LOCK : 0x5B,
+    SET_LOCK: 0x5B,
+    POST_LOCK: 0x6B,
 
     GET_NODE_ADDR : 0x50,
     GET_GROUP_ADDR : 0x51,
