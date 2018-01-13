@@ -44,7 +44,7 @@ module.exports.Start = function (action) {
         var cmd, err;
         const srcAddr = 0x01;
 
-        if (action.cmd >= sdn.CommandEnum.CTRL_MOVE && action.cmd <= sdn.CommandEnum.GET_NETWORK_STAT) {
+        if (action.cmd >= sdn.CommandEnum.CTRL_MOVE && action.cmd <= sdn.CommandEnum.SET_LOCK) {
             cmd = sdn.SomfyMsg(srcAddr, action.addr, action.cmd, action.data);
             // Needs to handle the message coding, sending, complete, return data, status updates
             // Want to be able to compose sequences as well has define parent/child relationships
@@ -73,10 +73,10 @@ module.exports.Start = function (action) {
             cmd = sdn.SetPercent(Number(action.addr), Number(action.value));
         } else if (action.cmd == 'Jog' && action.type == 'motor') {
             cmd = sdn.Jog(Number(action.addr), action.down, Number(action.time));
-        } else if (action.cmd == 'Lock' && action.type == 'motor') {
-            cmd = sdn.SetLock(Number(action.addr), true);
-        } else if (action.cmd == 'Unlock' && action.type == 'motor') {
-            cmd = sdn.SetLock(Number(action.addr), false);
+        //} else if (action.cmd == 'Lock' && action.type == 'motor') {
+        //    cmd = sdn.SetLock(Number(action.addr), true);
+        //} else if (action.cmd == 'Unlock' && action.type == 'motor') {
+        //    cmd = sdn.SetLock(Number(action.addr), false);
         } else {
             err = "Unknown command " + action.cmd + " type " + action.type + " address " + action.addr;
         }
