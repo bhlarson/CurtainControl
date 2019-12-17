@@ -1,6 +1,6 @@
 ﻿console.log("Starting CurtainControl on " + process.platform + " with node version "+ process.version);
 require('dotenv').config({ path: './config.env' });
-var express = require('express');
+var express = require('express')
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);

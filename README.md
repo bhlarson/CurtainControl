@@ -10,7 +10,7 @@
 > tar -vf lib*
 > sudo cp ./release/build/lib* /usr/local/lib
 > cd /usr/local/lib 
->  sudo ln –s libftd2xx.so.1.3.6 libftd2xx.so
+>  sudo ln ï¿½s libftd2xx.so.1.3.6 libftd2xx.so
 > sudo chmod 0755 libftd2xx.so.1.3.6
 > enable SSH from sudo raspi-config interface options
 - Map port to 80 so we can run node in standard user account
@@ -33,15 +33,16 @@ iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 13
 > git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
 > cd CurtainControl
 > git pull origin master <- sync with github repository after archive created
-> nmp update <- update dependencies
+> npm update <- update dependencies
 > sudo npm install serialport --unsafe-perm --build-from-source <-  install and build serialport
+> sudo npm install serialport --unsafe-perm
 4) execute project with debugger
 >nodejs RemoteDebug.js server.js
 5) execute project
 >nodejs server.js
 6) auto start:?	
 	a) Log into to pi as root in putty
-	b) Create a symbolic link to  ”nodecurtain.service” in /etc/systemd/system	
+	b) Create a symbolic link to  ï¿½nodecurtain.serviceï¿½ in /etc/systemd/system	
 		>  sudo ln nodecurtain.service /etc/systemd/system/nodecurtain.service
 	c) Enable and start:
 		$ sudo systemctl enable nodecurtain.service
@@ -49,7 +50,7 @@ iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 13
 		$ sudo systemctl start nodecurtain.service
 		$ sudo systemctl restart nodecurtain.service
 		$ sudo systemctl disable nodecurtain.service
-		$ ps aux
+		$ ps -ef | grep CurtainControl
 7) Console out logged to "/var/log/syslog" startup logged to "/var/log/messages" Create mysql datbase:
 
 Notes: 
