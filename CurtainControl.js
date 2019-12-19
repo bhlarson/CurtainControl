@@ -8,19 +8,19 @@ else {
     SerialPort = require('serialport');
 }
 
-var initData = { portName: "'/dev/ttyUSB0'" };
-var stateData = {serialPort: {}};
+module.exports.initData = { portName: "'/dev/ttyUSB0'" };
+module.exports.stateData = {initData: {}, serialPort: {}};
 
 module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
-        initData = init;
+        var stateData = {initData: init, serialPort:{}};
         try {
-            var serialPort = new SerialPort(initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
+            stateData.serialPort = new SerialPort(stateData.initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
             
-            console.log("Serial Port " + initData.portName+ " object " + (typeof serialPort !== 'undefined'));
+            console.log("Serial Port " + stateData.initData.portName+ " object " + (typeof serialPort !== 'undefined'));
 
 
-            serialPort.on('data', function (data) {
+            stateData.serialPort.on('data', function (data) {
                 console.log('data received: ' + data.toString('hex'));
                 
                 Buffer.concat([msg, data])
@@ -41,18 +41,17 @@ module.exports.Initialize = function (init) {
                     }
                 }
             });
-            serialPort.on('err', function (err) {
-                console.log("Serial Port " + initData.portName + " error: " + err);
+            stateData.serialPort.on('err', function (err) {
+                console.log("Serial Port " + stateData.initData.portName + " error: " + err);
             });            
-            serialPort.on('open', function () {
+            stateData.serialPort.on('open', function () {
                 console.log("Serial Port opened");
-                stateData.serialPort = serialPort;
-                resolve("initialized");
+                resolve(stateData);
             });
         }
         catch (err) {
             console.log("Serial Port Initialization error " + err);
-            reject(err);
+            reject(stateData);
         }
     });
 }
@@ -63,13 +62,7 @@ module.exports.CompleteEnum = {
     ACTION_FAIL : 0x02, // Stop requested    
 };
 
-
-
-module.exports.State = function() {
-    return state;
-}
-
-module.exports.Start = function (action) {
+module.exports.Start = function (stateData, action) {
     return new Promise(function (resolve, reject) {
         var cmd, err;
         if (action.cmd == 'UpLimit' && action.type == 'motor') {
@@ -103,14 +96,14 @@ module.exports.Start = function (action) {
             //    resolve(dbres);
             //});
             console.log('write ' + cmd.toString('hex'));
-            serialPort.write(cmd, function (err) {
+            stateData.serialPort.write(cmd, function (err) {
                 if (err) {
                     console.log('write error ' + err);
-                    reject({ result: ACTION_FAIL , error: err });
+                    reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
                 }
                 else {
                     console.log('write complete');
-                    resolve({ result: ACTION_COMPLETED });
+                    resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
                 }
             });
         }

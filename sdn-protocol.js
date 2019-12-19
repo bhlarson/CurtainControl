@@ -251,13 +251,13 @@ module.exports.SomfyMessage = function (message) {
                 msg.command = keys[i];
             }
         }
-        msg.src = Buffer();
-        msg.dest = Buffer();
+        msg.src = Buffer.alloc();
+        msg.dest = Buffer.alloc();
         for (var i = 0; i < 3; i++) {
             msg.src.push(~message[i + 3]);
             msg.dest.push(~message[i + 6]);
         }
-        msg.data = Buffer();
+        msg.data = Buffer.alloc();
         for (var i = 0; i < 11-(~message(2)); i++) {
             msg.data.push(~message[i + 9]);
         }

@@ -1,18 +1,18 @@
 ﻿console.log("Starting CurtainControl on " + process.platform);
 require('dotenv').config({ path: './config.env' });
 var express = require('express');
-var app = express();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-var SolarCalc = require('solar-calc');
-var schedule = require('node-schedule');
-var sdn = require('./sdn-protocol');
-var curtains = require('./CurtainControl');
-var mysql = require('mysql');
+const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const sdn = require('./sdn-protocol');
+const curtains = require('./CurtainControl');
+const mysql = require('mysql');
+var SunCalc = require('suncalc2');
+var cronparser = require('cron-parser');
 console.log("All External Dependancies Found");
 
 // Home database credentials
-var pool = mysql.createPool({
+const pool = mysql.createPool({
     connectionLimit : 10,
     host            : process.env.dbhost,
     user            : process.env.dbuser,
@@ -22,96 +22,150 @@ var pool = mysql.createPool({
 
 console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 
-//var motors = [0x0671E4, 0x067C9F, 0x067121, 0x065F07,
-//    0x067944, 0x067D0E, 0x06796E, 0x067D0C, 0x067D0A, 
-//    0x06794F, 0x067982, 0x067984, 0x067981,
-//    0x067D0F, 0x067CD9, 0x0679D7, 0x0679D2, 0x06799B,
-//    0x06792F, 0x06793F, 0x067930, 0x06793B];
+function NextEvent(timestamp, schedule) {
+    var events = [];
+  
+    var date = new Date(timestamp);
+    var tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  
+    var solarToday = SunCalc.getTimes(date, process.env.latitude, process.env.longitude);
+    var solarTomorrow = SunCalc.getTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    var lunarToday = SunCalc.getMoonTimes(date, process.env.latitude, process.env.longitude);
+    var lunarTomorrow = SunCalc.getMoonTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    schedule.forEach(element => {
+      var scheduledTime = 0;
+      switch (element.timer) {
+        case 'date':
+          if (element.config.date) {
+            scheduledTime = new Date(element.config.date).getTime();
+          }
+          break;
+        case 'timestamp':
+          if (element.config.timestamp) {
+            scheduledTime = element.config.timestamp;
+          }
+          break;
+        case 'chron':
+          var options = {
+            currentDate: new Date(timestamp),
+            iterator: true
+          };
+          var interval = cronparser.parseExpression(element.config.expression, options);
+          scheduledTime = interval.next().value.getTime();
+          break;
+        case 'celestial':
+          if (element.config.when) {
+  
+            var offset = 0;
+            if (element.config.offset) {
+              offset = element.config.offset;
+            }
+  
+            switch (element.config.when) {
+              case 'sunrise':
+                scheduledTime = solarToday.sunrise.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunrise.getTime() + offset;
+                }
+                break;
+              case 'sunset':
+                scheduledTime = solarToday.sunset.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunset.getTime() + offset;
+                }
+                break;
+              // Moon events conditioned on nighttime, moon phase, and weather
+              case 'moonrise':
+                  scheduledTime = lunarToday.rise.getTime() + offset;
+                  if (scheduledTime < timestamp) {
+                    scheduledTime = lunarTomorrow.rise.getTime() + offset;
+                  }
+                break;
+              case 'moonset':
+                scheduledTime = lunarToday.set.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = lunarTomorrow.set.getTime() + offset;
+                }
+                break;
+            }
+          }
+  
+          break;
+      }
+      var howLong = scheduledTime - timestamp;
+      if(howLong >= 0){
+        events.push({ts:scheduledTime, when:new Date(scheduledTime), event:element});
+      }
+    });
+    events.sort((a, b)=>(a.ts > b.ts) ? 1 : -1); // Sort ascending
+      
+    return events
+  }
 
-//var motors = [
-//    { name: "Bay East", description: "Main Bay East", address: 0x0671E4 },
-//    { name: "Bay Center", description: "Main Bay South", address: 0x067C9F },
-//    { name: "Bay West", description: "Main Bay West", address: 0x067121 },
-//    { name: "Front Door", description: "Main Over Door", address: 0x065F07 },
-//    { name: "Sunroom SE1", description: "Main Sunroom Southeast 1", address: 0x067944 },
-//    { name: "Sunroom SE2", description: "Main Sunroom Southeast 2", address: 0x067D0E },
-//    { name: "Sunroom SE3", description: "Main Sunroom Southeast 3", address: 0x06796E },
-//    { name: "Sunroom SE4", description: "Main Sunroom Southeast 4", address: 0x067D0C },
-//    { name: "Sunroom SE5", description: "Main Sunroom Southeast 5", address: 0x067D0A },
-//    { name: "Sunroom SW1", description: "Main Sunroom Southwest 1", address: 0x06794F },
-//    { name: "Sunroom SW2", description: "Main Sunroom Southwest 2", address: 0x067982 },
-//    { name: "Sunroom SW3", description: "Main Sunroom Southwest 3", address: 0x067984 },
-//    { name: "Sunroom SW4", description: "Main Sunroom Southwest 4", address: 0x067981 },
-//    { name: "Bedroom SE1", description: "Basement Bedroom Southeast 1", address: 0x067D0F },
-//    { name: "Bedroom SE2", description: "Basement Bedroom Southeast 2", address: 0x067CD9 },
-//    { name: "Bedroom SE3", description: "Basement Bedroom Southeast 3", address: 0x0679D7 },
-//    { name: "Bedroom SE4", description: "Basement Bedroom Southeast 4", address: 0x0679D2 },
-//    { name: "Bedroom SE5", description: "Basement Bedroom Southeast 5", address: 0x06799B },
-//    { name: "Bedroom SW1", description: "Basement Bedroom Southwest 1", address: 0x06792F },
-//    { name: "Bedroom SW2", description: "Basement Bedroom Southwest 2", address: 0x06793F },
-//    { name: "Bedroom SW3", description: "Basement Bedroom Southwest 3", address: 0x067930 },
-//    { name: "Bedroom SW4", description: "Basement Bedroom Southwest 4", address: 0x06793B }
-//];
+async function ProcessEvents(curtains, state_data){
+    const groups = await GetGroups();
+    const allGroup = groups.find(element => element.name == "All Windows");
+    const main = groups.find(element => element.name == "Main Floor");
+    const bay = groups.find(element => element.name == "Bay Window");
+    let up = false;
 
-//var groups = [
-//    { name: "All Curtains", description: "All curtains", address: 0x100000,  motors:[] },
-//    { name: "Main Floor", description: "All main floor curtains", address: 0x010110, motors:[] },
-//    { name: "Bay Window", description: "Bay window curtains", address: 0x010202, motors:[] },
-//    { name: "Front Door", description: "Front door curtains", address: 0x010203 , motors:[] },
-//    { name: "All Sunroom", description: "All sunroom curtains", address: 0x010101,  motors:[] },
-//    { name: "South Sunroom", description: "South sunroom curtains", address: 0x010102,  motors:[] },
-//    { name: "West Sunroom", description: "West sunroom curtains", address: 0x010103,  motors:[] },
-//    { name: "All Basement", description: "All basement curtains", address: 0x000101,  motors:[] },
-//    { name: "South Basement", description: "South basement curtains", address: 0x000102,  motors:[] },
-//    { name: "West Basement", description: "West basement curtains", address: 0x000103,  motors:[] },
-//    { name: "South Corner Basement", description: "South Corner Basement curtains", address: 0x000104,  motors:[] }
-//];
+    let closeAll = () =>{
+        cmd = { cmd: "DownLimit", type: "group", addr: bay.address }
+        console.log(cmd);
+        curtains.Start(state_data, cmd);
+    }
 
-//var connection = mysql.createConnection({
-//    host     : 'localhost',
-//    user     : 'root',
-//    password : 'password',
-//    database : 'curtaindb'
-//});
+    let openMain = () =>{
+        cmd = { cmd: "UpLimit", type: "group", addr: bay.address }
+        console.log(cmd);
+        curtains.Start(state_data, cmd);
+    }
 
-//var pool = mysql.createPool({
-//    connectionLimit : 10,
-//    host            : 'localhost',
-//    user            : 'root',
-//    password        : 'password',
-//    database        : 'curtaindb'
-//});
+    var schedule = [
+        { timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
+        { timer: 'celestial', config: { when: 'sunrise', offset: 2*60*60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'celestial', config: { when: 'sunset', offset: -30 * 60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
+        { timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
+      ];
 
-//var record = { address: 0x0671E4, name: "Bay East", description: "Main Bay East" };
 
-//pool.query('INSERT INTO motors SET ?', record, function (err, res) {
-//    if (err) throw err;
+      let promise = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+      var ts = Date.now();
+      var events = NextEvent(ts, schedule);
     
-//    console.log('Last record insert id:', res.insertId);
-//});
+      while(true){
+        // Preform events that have occurred
+        // Fire any timed-out events and remove them from the list
+        var now;
+        var fireEvents = true
+        while (fireEvents) {
+          now = Date.now();
+          if (now >= events[0].ts) {
+            if (events[0].event.condition())
+              events[0].event.action();
+            events.shift() // Remove completed event from list
+          }
+          else {
+            fireEvents = false;
+          }
+        }
+        ts = now;  // move timestamp up to last processed event
+        events = NextEvent(ts, schedule);
+        //console.log(JSON.stringify(events,null, 4));
+        //console.log(events[0].ts-ts + ' ' + ts );
+        await promise(events[0].ts-ts); 
+      }
 
-//pool.query('SELECT * FROM motors', function (err, res, field) {
-//    if (err) {
-//        exist(err); //No error
-//    } else if (res) {
-//        console.log(res);  //displays '[]'
-//    } else {
-//        console.log('pool.query no result');
-//    }
-//});
-
-
-//var SerialPort;
-//if (process.env.NODE_ENV == 'development') {
-//    SerialPort = require('virtual-serialport');
-//}
-//else {
-//    SerialPort = require('serialport');
-//}
+}
 
 var port = process.env.PORT || 1337;
 app.use(express.static('public'));
-//app.use(express.static('node_modules/jquery-ui-1.12.1'));
 app.use(express.static('node_modules/socket.io-client/dist')); // Windows
 app.use(express.static('node_modules/socket.io/node_modules/socket.io-client/dist')); // Linux
 
@@ -205,12 +259,6 @@ http.listen(port, function () {
     console.log('Socket.IO listening on port ' + port);
 });
 
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise Today: ", solar.sunrise.toString());
-
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise ", solar.sunrise);
-
 var portStr = '/dev/ttyUSB0';
 if (process.platform == 'win32') {
     portStr = 'COM5';
@@ -218,8 +266,9 @@ if (process.platform == 'win32') {
 
 //var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
 
-curtains.Initialize({ portName: portStr }).then(function (result) {
-    console.log('curtains.Initialize ' + result);
+curtains.Initialize({ portName: portStr }).then(function (state_data) {
+    console.log('curtains.Initialize ' + state_data);
+    ProcessEvents(curtains, state_data);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
 });
@@ -247,74 +296,6 @@ io.on('connection', function (socket) {
     });
 });
 
-    
-    //var getPosition = sdn.GetPosition(overDoor);
-    //serialPort.write(getPosition, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    //var count = 0;
-    //for (var i = 0; i < 10000; i++) {
-    //    count = count + 1;
-    //}
-    /*
-    console.log('DownLimit:' + motorAddress);
-    var downLimit = sdn.DownLimit(motorAddress);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var positionCmd = sdn.SetPosition(overDoor, 1000);
-    serialPort.write(positionCmd, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var downLimit = sdn.DownLimit(stairEast);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var downLimit = sdn.DownLimit(stairCenter);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    //var upLimit = sdn.UpLimitGroup(address);
-    //serialPort.write(upLimit, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    var date = new Date();
-    date.setSeconds(date.getSeconds() + 10);
-    
-    var j = schedule.scheduleJob(date, function () {
-        var positionCmd = sdn.SetPosition(overDoor, 3500);
-        serialPort.write(positionCmd, function (err, results) {
-            if (err != undefined) {
-                console.log('err ' + err);
-                console.log('results ' + results);
-            }
-        });
-    });
- */
 
 function GetMotors() {
     return new Promise(function (resolve, reject) {
@@ -329,7 +310,7 @@ function GetMotors() {
     });
 }
 
-function GetGroups() {
+async function GetGroups() {
     return new Promise(function (resolve, reject) {
         var connectionString = 'SELECT * FROM `' + process.env.dbgroups + '`';
         pool.query(connectionString, function (dberr, dbres, dbfields) {
@@ -342,5 +323,6 @@ function GetGroups() {
     });
 }
 
+
 module.exports = app;
-console.log("Creation  successful")
+console.log("Curtain Control Running")
