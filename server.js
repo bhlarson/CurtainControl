@@ -323,6 +323,5 @@ async function GetGroups() {
     });
 }
 
-
 module.exports = app;
 console.log("Curtain Control Running")
