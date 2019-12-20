@@ -4,7 +4,6 @@ log4js.configure({
     categories: { default: { appenders: ['command'], level: 'ALL' } }
 });
 const cmdLog = log4js.getLogger('command');
-
 var sdn = require('./sdn-protocol');
 var SDNPort = sdn.SP;
 var initData = { portName: '/dev/ttyUSB0', log: {}};
@@ -20,14 +19,60 @@ module.exports.Initialize = function (init) {
             var config = { log: init.log, portName: init.portName }
             state.serialPort.Start(config, function (result) {
                 console.log("serialPort.Start result " + result);
-            });
+
+
+var SerialPort;
+if (process.env.NODE_ENV == 'development') {
+    SerialPort = require('virtual-serialport');
+}
+else {
+    SerialPort = require('serialport');
+}
+
+module.exports.initData = { portName: "'/dev/ttyUSB0'" };
+module.exports.stateData = {initData: {}, serialPort: {}};
+
+module.exports.Initialize = function (init) {
+    return new Promise(function (resolve, reject) {
+        var stateData = {initData: init, serialPort:{}};
+        try {
+            stateData.serialPort = new SerialPort(stateData.initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
             
+            console.log("Serial Port " + stateData.initData.portName+ " object " + (typeof serialPort !== 'undefined'));
+
+
+            stateData.serialPort.on('data', function (data) {
+                console.log('data received: ' + data.toString('hex'));
+                var msg = [];
+                for (var i = 0; i < data.length; i++) {
+                    msg.push(data[i]);
+                }
+                
+                var parsedMsg;
+                if (msg.length < 11) {
+        // Still accumulating message
+                }
+                else {
+                    parsedMsg = SerialPort.SomfyMessage(msg);
+                    if (parsedMsg.err) { 
+                    }
+                    else if (parsedMsg.lenght) { 
+                    }
+                }
+            });
+            stateData.serialPort.on('err', function (err) {
+                console.log("Serial Port " + stateData.initData.portName + " error: " + err);
+            });            
+            stateData.serialPort.on('open', function () {
+                console.log("Serial Port opened");
+                resolve(stateData);
+            });
             console.log("Serial Port " + initData.portName + " object defined:" + (typeof state.serialPort !== 'undefined'));
             resolve("initialized");
         }
         catch (err) {
             console.log("Serial Port Initialization error " + err);
-            reject(err);
+            reject(stateData);
         }
     });
 }
@@ -38,8 +83,7 @@ module.exports.CompleteEnum = {
     ACTION_FAIL : 0x02, // Stop requested    
 };
 
-
-module.exports.Start = function (action) {
+module.exports.Start = function (stateData, action) {
     return new Promise(function (resolve, reject) {
         var cmd, err;
         const srcAddr = 0x01;
@@ -73,10 +117,10 @@ module.exports.Start = function (action) {
             cmd = sdn.SetPercent(Number(action.addr), Number(action.value));
         } else if (action.cmd == 'Jog' && action.type == 'motor') {
             cmd = sdn.Jog(Number(action.addr), action.down, Number(action.time));
-        //} else if (action.cmd == 'Lock' && action.type == 'motor') {
-        //    cmd = sdn.SetLock(Number(action.addr), true);
-        //} else if (action.cmd == 'Unlock' && action.type == 'motor') {
-        //    cmd = sdn.SetLock(Number(action.addr), false);
+        } else if (action.cmd == 'Lock' && action.type == 'motor') {
+            cmd = sdn.SetLock(Number(action.addr), true);
+        } else if (action.cmd == 'Unlock' && action.type == 'motor') {
+            cmd = sdn.SetLock(Number(action.addr), false);
         } else {
             err = "Unknown command " + action.cmd + " type " + action.type + " address " + action.addr;
         }
@@ -94,16 +138,16 @@ module.exports.Start = function (action) {
             console.log('write ' + cmd.toString('hex'));
             var ports = { buffer: cmd };
             state.serialPort.Input(ports)
-            //state.serialPort.write(cmd, function (err, result) {
-            //    if (err) {
-            //        console.log('write error ' + err);
-            //        reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
-            //    }
-            //    else {
-            //        console.log('write succeeded');
-            //        resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
-            //    }
-            //});
+            stateData.serialPort.write(cmd, function (err) {
+                if (err) {
+                    console.log('write error ' + err);
+                    reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
+                }
+                else {
+                    console.log('write complete');
+                    resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
+                }
+            });
         }
     });
 }

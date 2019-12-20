@@ -2,6 +2,7 @@
 #$ sudo systemctl daemon-reload -- reload service
 #$ sudo systemctl enable nodecurtain.service
 #$ sudo systemctl restart nodecurtain.service -- restart process
+#$ sudo systemctl stop nodecurtain.service
 #$ ps aux -- list running processes
 # Output to /var/log/syslog
 
@@ -17,7 +18,7 @@ SyslogIdentifier=CurtainControl
 User=pi
 Group=pi
 Environment=PATH=/home/pi/CurtainControl
-Environment=NODE_ENV=production PORT=5000
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target

@@ -1,32 +1,18 @@
-﻿console.log("Starting CurtainControl on " + process.platform + " with node version "+ process.version);
+﻿console.log("Starting CurtainControl on " + process.platform);
 require('dotenv').config({ path: './config.env' });
-var express = require('express')
-var app = express();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-var SolarCalc = require('solar-calc');
-var schedule = require('node-schedule');
-var sdn = require('./sdn-protocol');
-var curtains = require('./CurtainControl');
-var mysql = require('mysql');
-var log4js = require('log4js');
+var express = require('express');
+const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const sdn = require('./sdn-protocol');
+const curtains = require('./CurtainControl');
+const mysql = require('mysql');
+var SunCalc = require('suncalc2');
+var cronparser = require('cron-parser');
 console.log("All External Dependancies Found");
 
-log4js.configure({
-    appenders: { command: { type: 'file', filename: 'state.log' } },
-    categories: { default: { appenders: ['command'], level: 'ALL' } }
-});
-const cmdLog = log4js.getLogger('command');
-
-//var init = {
-//var act = curtains.ActionStr(init);
-//var data = act.GetState();
-//act.then(function (result){ 
-//    console.log(result);
-//});
-
 // Home database credentials
-var pool = mysql.createPool({
+const pool = mysql.createPool({
     connectionLimit : 10,
     host            : process.env.dbhost,
     user            : process.env.dbuser,
@@ -36,8 +22,145 @@ var pool = mysql.createPool({
 
 console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 
+function NextEvent(timestamp, schedule) {
+    var events = [];
+  
+    var date = new Date(timestamp);
+    var tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  
+    var solarToday = SunCalc.getTimes(date, process.env.latitude, process.env.longitude);
+    var solarTomorrow = SunCalc.getTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    var lunarToday = SunCalc.getMoonTimes(date, process.env.latitude, process.env.longitude);
+    var lunarTomorrow = SunCalc.getMoonTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    schedule.forEach(element => {
+      var scheduledTime = 0;
+      switch (element.timer) {
+        case 'date':
+          if (element.config.date) {
+            scheduledTime = new Date(element.config.date).getTime();
+          }
+          break;
+        case 'timestamp':
+          if (element.config.timestamp) {
+            scheduledTime = element.config.timestamp;
+          }
+          break;
+        case 'chron':
+          var options = {
+            currentDate: new Date(timestamp),
+            iterator: true
+          };
+          var interval = cronparser.parseExpression(element.config.expression, options);
+          scheduledTime = interval.next().value.getTime();
+          break;
+        case 'celestial':
+          if (element.config.when) {
+  
+            var offset = 0;
+            if (element.config.offset) {
+              offset = element.config.offset;
+            }
+  
+            switch (element.config.when) {
+              case 'sunrise':
+                scheduledTime = solarToday.sunrise.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunrise.getTime() + offset;
+                }
+                break;
+              case 'sunset':
+                scheduledTime = solarToday.sunset.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunset.getTime() + offset;
+                }
+                break;
+              // Moon events conditioned on nighttime, moon phase, and weather
+              case 'moonrise':
+                  scheduledTime = lunarToday.rise.getTime() + offset;
+                  if (scheduledTime < timestamp) {
+                    scheduledTime = lunarTomorrow.rise.getTime() + offset;
+                  }
+                break;
+              case 'moonset':
+                scheduledTime = lunarToday.set.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = lunarTomorrow.set.getTime() + offset;
+                }
+                break;
+            }
+          }
+  
+          break;
+      }
+      var howLong = scheduledTime - timestamp;
+      if(howLong >= 0){
+        events.push({ts:scheduledTime, when:new Date(scheduledTime), event:element});
+      }
+    });
+    events.sort((a, b)=>(a.ts > b.ts) ? 1 : -1); // Sort ascending
+      
+    return events
+  }
 
-var port = Number(process.env.nodeport) || 1337;
+async function ProcessEvents(curtains, state_data){
+    const groups = await GetGroups();
+    const allGroup = groups.find(element => element.name == "All Windows");
+    const main = groups.find(element => element.name == "Main Floor");
+    const bay = groups.find(element => element.name == "Bay Window");
+    let up = false;
+
+    let closeAll = () =>{
+        cmd = { cmd: "DownLimit", type: "group", addr: allGroup.address }
+        console.log(cmd);
+        curtains.Start(state_data, cmd);
+    }
+
+    let openMain = () =>{
+        cmd = { cmd: "UpLimit", type: "group", addr: allGroup.address }
+        console.log(cmd);
+        curtains.Start(state_data, cmd);
+    }
+
+    var schedule = [
+        { timer: 'celestial', config: { when: 'sunrise', offset: -30*60 }, condition: ()=>{return true;}, action: () => { openMain() } },
+        { timer: 'celestial', config: { when: 'sunset', offset: 30 * 60 }, condition: ()=>{return true;}, action: () => { closeAll() } }   
+      ];
+
+
+      let promise = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+      var ts = Date.now();
+      var events = NextEvent(ts, schedule);
+    
+      while(true){
+        // Preform events that have occurred
+        // Fire any timed-out events and remove them from the list
+        var now;
+        var fireEvents = true
+        while (fireEvents) {
+          now = Date.now();
+          if (now >= events[0].ts) {
+            if (events[0].event.condition())
+              events[0].event.action();
+            events.shift() // Remove completed event from list
+          }
+          else {
+            fireEvents = false;
+          }
+        }
+        ts = now;  // move timestamp up to last processed event
+        events = NextEvent(ts, schedule);
+        console.log(JSON.stringify(events,null, 4));
+        console.log(events[0].ts-ts + ' ' + ts );
+        await promise(events[0].ts-ts); 
+      }
+
+}
+
+var port = process.env.nodeport || 1337;
 app.use(express.static('public'));
 app.use(express.static('node_modules/socket.io-client/dist')); // Windows
 app.use(express.static('node_modules/socket.io/node_modules/socket.io-client/dist')); // Linux
@@ -132,118 +255,42 @@ http.listen(port, function () {
     console.log('Socket.IO listening on port ' + port);
 });
 
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise Today: ", solar.sunrise.toString());
+var portStr = '/dev/ttyUSB0';
+if (process.platform == 'win32') {
+    portStr = 'COM5';
+}
 
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise ", solar.sunrise);
+//var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
 
-curtains.Initialize({ portName: process.env.serialport }).then(function (result) {
-    console.log('curtains.Initialize succeeded ' + result);
+curtains.Initialize({ portName: portStr }).then(function (state_data) {
+    console.log('curtains.Initialize ' + state_data);
+    io.on('connection', function (socket) {
+      socket.broadcast.emit('Server Connected');
+      socket.on('disconnect', function () {
+          console.log('Socket.IO  disconnected ' + socket.id);
+      });
+      socket.on('connect_failed', function () {
+          console.log('socket.io connect_failed');
+      });
+      socket.on('reconnect_failed', function () {
+          console.log('socket.io reconnect_failed');
+      });
+      socket.on('error', function (err) {
+          console.log('socket.io error:' + err);
+      });
+      socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+          console.log('Action ' + JSON.stringify(data));
+          curtains.Start(state_data, data).then(function (result) { }, function (err) { });
+      });
+  });
+
+    ProcessEvents(curtains, state_data);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
 });
 
 var broadcast = 0xFFFFFF;
 
-io.on('connection', function (socket) {
-    socket.broadcast.emit('Server Connected');
-    socket.on('disconnect', function () {
-        console.log('Socket.IO  disconnected ' + socket.id);
-    });
-    socket.on('connect_failed', function () {
-        console.log('socket.io connect_failed');
-    });
-    socket.on('reconnect_failed', function () {
-        console.log('socket.io reconnect_failed');
-    });
-    socket.on('error', function (err) {
-        console.log('socket.io error:' + err);
-    });
-    socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
-        console.log('Action ' + JSON.stringify(data));
-        curtains.Start(data).then(function (result) { }, function (err) {
-            console.log('curtains.Start error ' + err);
-        });
-    });
-    socket.on('Command', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
-        console.log('Command ' + JSON.stringify(data));
-        curtains.Start(data).then(function (result) { }, function (err) { });
-    });
-
-    curtains.Output(function (data) {
-        socket.emit('Message', data);
-    });
-});
-
-    
-    //var getPosition = sdn.GetPosition(overDoor);
-    //serialPort.write(getPosition, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    //var count = 0;
-    //for (var i = 0; i < 10000; i++) {
-    //    count = count + 1;
-    //}
-    /*
-    console.log('DownLimit:' + motorAddress);
-    var downLimit = sdn.DownLimit(motorAddress);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var positionCmd = sdn.SetPosition(overDoor, 1000);
-    serialPort.write(positionCmd, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var downLimit = sdn.DownLimit(stairEast);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var downLimit = sdn.DownLimit(stairCenter);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    //var upLimit = sdn.UpLimitGroup(address);
-    //serialPort.write(upLimit, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    var date = new Date();
-    date.setSeconds(date.getSeconds() + 10);
-    
-    var j = schedule.scheduleJob(date, function () {
-        var positionCmd = sdn.SetPosition(overDoor, 3500);
-        serialPort.write(positionCmd, function (err, results) {
-            if (err != undefined) {
-                console.log('err ' + err);
-                console.log('results ' + results);
-            }
-        });
-    });
- */
 
 function GetMotors() {
     return new Promise(function (resolve, reject) {
@@ -258,7 +305,7 @@ function GetMotors() {
     });
 }
 
-function GetGroups() {
+async function GetGroups() {
     return new Promise(function (resolve, reject) {
         var connectionString = 'SELECT * FROM `' + process.env.dbgroups + '`';
         pool.query(connectionString, function (dberr, dbres, dbfields) {
@@ -272,4 +319,4 @@ function GetGroups() {
 }
 
 module.exports = app;
-console.log("CurtainControl Started")
+console.log("Curtain Control Running")

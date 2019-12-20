@@ -437,11 +437,6 @@ module.exports.SomfyMsg = function (srcAddr, destAddr, cmd, msgData) {
     const dest_offset = 6;
     const data_offset = 9;
     
-    var dataLen = msgData.length;
-    if (!dataLen) {
-
-    }
-    
     var somfyMsg = Buffer(msgOverhead + msgData.length);
     somfyMsg[msg_offset] = ~cmd;
     somfyMsg[len_offset] = ~somfyMsg.length;
@@ -470,9 +465,63 @@ function Command(id)
     for (var key in module.exports.CommandEnum) {
         if (module.exports.CommandEnum.hasOwnProperty(key)) {
             command = module.exports.CommandEnum[key];
+    var valid = true;
+    if (message.length() > 0 && Commnad(~message(0)) == INVALID_COMMAD) {
+        valid == false;
+    }
+    if (message.length() > 1 && ~message(2) < 11 || ~message(2) > 16) {
+        valid = false;
+    }    
+    if (message.length() > 2 && message(1) != 0x03 || message(1) != 0x20) {
+        valid = false;       
+    }
+    if (message.length() >= 11 && ~message(2) >= 11 && ~message(2) <= 16) {
+        var messageChecksum = message
+        var cumputedCheckSum = CheckSum(message);
+        if (messageChecksum != cumputedCheckSum) {
+            valid = false;
         }
     }
-    return command
+    else {
+        valid = false;
+    }
+    return valid;
+}
+
+module.exports.SomfyMessage = function (message) {
+    var msg ={};
+    if (!Valid(message)) {
+        msg.err = "Invalid:"+ message;
+        if (message.length >= 11) {
+            console.log("Dumping invalid " + message);
+        }
+        return msg;
+    }
+    
+    if (message.length >= ~message(2)) { // Have message
+        var keys = Object.keys(module.exports.CommandEnum);
+        var key;
+        var command = ~message(1);
+        msg.length = ~message(2);
+        
+        // Command
+        for (var i = 0; i < keys.length && !key; i++) {
+            if (module.exports.CommandEnum.hasOwnProperty(keys[i]) && keys[i].value == command) {
+                msg.command = keys[i];
+            }
+        }
+        msg.src = Buffer().alloc();
+        msg.dest = Buffer().alloc();
+        for (var i = 0; i < 3; i++) {
+            msg.src.push(~message[i + 3]);
+            msg.dest.push(~message[i + 6]);
+        }
+        msg.data = Buffer().alloc();
+        for (var i = 0; i < 11-(~message(2)); i++) {
+            msg.data.push(~message[i + 9]);
+        }
+    }
+    return msg;
 }
 
 
