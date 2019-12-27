@@ -196,19 +196,25 @@ module.exports.CommandEnum = {
     POST_MOTOR_LIMITS : 0x31,
     POST_MOTOR_DIRECTION : 0x32,
     POST_MOTOR_ROLLING_SPEED : 0x33,
-    POST_MOTOR_IP : 0x35,
+    POST_MOTOR_IP: 0x35,
+    POST_DCT_LOCK: 0x37,
     POST_FACTORY_DEFAULT : 0x3F,
-
-    GET_LOCK :  0x4B,
-    SET_LOCK : 0x5B,
-
-    GET_NODE_ADDR : 0x50,
-    GET_GROUP_ADDR : 0x51,
-    GET_NODE_LABEL : 0x55,
-    GET_NODE_SERIAL_NUMBER : 0x5C,
-    ET_NETWORK_ERROR_STAT : 0x5D,
-    GET_NETWORK_STAT : 0x5E
+    GET_NODE_ADDR : 0x40,
+    GET_GROUP_ADDR : 0x41,
+    GET_NODE_LABEL: 0x45,
+    GET_LOCK: 0x4B,
+    GET_NODE_SERIAL_NUMBER: 0x4C,
+    GET_NETWORK_ERROR_STAT: 0x4D,
+    GET_NETWORK_STAT: 0x4E,
+    SET_LOCK: 0x5B,
+    POST_NODE_ADDR: 0x60,
+    POST_GROUP_ADDR: 0x61,
+    POST_NODE_LABEL: 0x65,
+    POST_LOCK: 0x6B,
+    POST_NODE_SERIAL_NUMBER: 0x6C,
+    POST_NETWORK_STAT: 0x6E
 };
+
 
 const srcAddr = 0x01;
 
@@ -390,90 +396,4 @@ function Command(id)
     }
     return command
 }
-
-function Valid(message)
-{
-    var valid = true;
-    if (message.length > 0 && Command(0xff & ~message[0]) == module.exports.CommandEnum.INVALID_COMMAD) {
-        console.log("Invalid command 0x" + Number(0xff & ~message[0]).toString(16));
-        valid = false;
-    }
-    if (message.length > 1 && (0xFF&(~message[1])) < 11 || (0xFF & (~message[1])) > 16) {
-        console.log("Invalid message length 0x" + Number(0xff & ~message[2]).toString(16));
-        valid = false;
-    }    
-    if (message.length > 2 && (0xFF & (~message[2])) != 0x02 &&(0xFF & (~message[2])) != 0x20) {
-        console.log("Invalid message unexpected resrved value 0x" + Number(0xff & ~message[1]).toString(16));
-        valid = false;       
-    }
-    if ((0xFF & (~message[1])) >= 11 && (0xFF & (~message[1])) <= 16) {
-        var expectedLen = (0xFF & (~message[1]));
-        if (message.length >= expectedLen) {
-            var expectedChecksum = (message[expectedLen - 2]<<8)  | message[expectedLen-1];
-            // Enough data to extract message
-            var cumputedCheckSum = CheckSum(message);
-            if (cumputedCheckSum != expectedChecksum) {
-                console.log("Invalid message checksum value 0x" + cumputedCheckSum.toString(16) + " expected 0x" + expectedChecksum.toString(16));
-                valid = false;
-            }
-        }
-    }
-    else {
-        console.log("Invalid message unexpected.");
-        valid = false;
-    }
-    return valid;
-}
-
-module.exports.SomfyMessage = function (message) {
-    var msg ={};
-    if (!Valid(message)) {
-        msg.err = "Invalid:"+ message;
-        if (message.length >= 11) {
-            var msgStr = "0x";
-            for (var i = 0; i < message.length; i++) {
-                msgStr += (message[i].toString(16));
-            }
-            console.log("Dumping invalid " + msgStr);
-
-        }
-        return msg;
-    }
-    
-    var expectedLen = (0xFF & (~message[1]));
-    if (message.length >= expectedLen){
-        var keys = Object.keys(module.exports.CommandEnum);
-        var key;
-        var command = 0xFF & (~message[0]);
-        msg.length = expectedLen;
-        msg.command = module.exports.CommandEnum.INVALID_COMMAD;
-        // Command
-        for (var key in module.exports.CommandEnum) {
-            if (module.exports.CommandEnum[key] == command) {
-                msg.command = key;
-            }
-        }
-
-        msg.src = Buffer(3);
-        msg.dest = Buffer(3);
-        for (var i = 0; i < 3; i++) {
-            msg.src[i] = (0xFF & (~message[i + 3]));
-            msg.dest[i] = (0xFF & (~message[i + 6]));
-        }
-        msg.data = [];
-        for (var i = 0; i < expectedLen-11; i++) {
-            msg.data.push(0xFF &(~message[i + 9]));
-        }
-    }
-    return msg;
-}
-
-
-
-
-
-
-
-
-
 

@@ -1,6 +1,6 @@
-﻿console.log("Starting CurtainControl on " + process.platform + " with node version "+ process.version);
+﻿console.log("Starting CurtainControl on " + process.platform + " with node version " + process.version);
 require('dotenv').config({ path: './config.env' });
-var express = require('express');
+var express = require('express')
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
@@ -27,11 +27,11 @@ const cmdLog = log4js.getLogger('command');
 
 // Home database credentials
 var pool = mysql.createPool({
-    connectionLimit : 10,
-    host            : process.env.dbhost,
-    user            : process.env.dbuser,
+    connectionLimit: 10,
+    host: process.env.dbhost,
+    user: process.env.dbuser,
     //  password        : 'password',
-    database        : process.env.dbname
+    database: process.env.dbname
 });
 
 console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
@@ -65,7 +65,7 @@ app.get('/GetGroups', function (req, res) {
     });
 });
 
-app.get('/UpdateConfig', function(req, res) {
+app.get('/UpdateConfig', function (req, res) {
     var previous = req.query.previous;
     var update = req.query.update;
 });
@@ -73,9 +73,9 @@ app.get('/UpdateConfig', function(req, res) {
 app.get('/UpdateDevice', function (req, res) {
     var prevConfig = req.query.previous;
     var newConfig = req.query.update;
-    var sql = 'UPDATE ' + process.env.dbdevices + ' SET ? WHERE address='+prevConfig.address;
-    
-    pool.query(sql,[newConfig], function (dberr, dbres, dbfields) {
+    var sql = 'UPDATE ' + process.env.dbdevices + ' SET ? WHERE address=' + prevConfig.address;
+
+    pool.query(sql, [newConfig], function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
 });
@@ -83,7 +83,7 @@ app.get('/UpdateDevice', function (req, res) {
 app.get('/AddDevice', function (req, res) {
     var newConfig = req.query.update;
     var sql = 'INSERT INTO ' + process.env.dbdevices + ' SET ?';
-    
+
     pool.query(sql, newConfig, function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
@@ -92,7 +92,7 @@ app.get('/AddDevice', function (req, res) {
 app.get('/RemoveDevice', function (req, res) {
     var address = Number(req.query.address);
     var sql = 'DELETE FROM ' + process.env.dbdevices + ' WHERE address=?';
-    
+
     pool.query(sql, address, function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
@@ -103,7 +103,7 @@ app.get('/UpdateGroup', function (req, res) {
     var newConfig = req.query.update;
     newConfig.devices = JSON.stringify(req.query.update.devices);
     var sql = 'UPDATE ' + process.env.dbgroups + ' SET ? WHERE address=' + prevConfig.address;
-    
+
     pool.query(sql, [newConfig], function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
@@ -111,9 +111,9 @@ app.get('/UpdateGroup', function (req, res) {
 
 app.get('/AddGroup', function (req, res) {
     var newConfig = req.query.update;
-    newConfig.devices = JSON.stringify(req.query.update.devices);    
+    newConfig.devices = JSON.stringify(req.query.update.devices);
     var sql = 'INSERT INTO ' + process.env.dbgroups + ' SET ?';
-    
+
     pool.query(sql, newConfig, function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
@@ -122,7 +122,7 @@ app.get('/AddGroup', function (req, res) {
 app.get('/RemoveGroup', function (req, res) {
     var address = Number(req.query.address);
     var sql = 'DELETE FROM ' + process.env.dbgroups + ' WHERE address=?';
-    
+
     pool.query(sql, address, function (dberr, dbres, dbfields) {
         res.send(dberr);
     });
@@ -176,78 +176,78 @@ io.on('connection', function (socket) {
     });
 });
 
-    
-    //var getPosition = sdn.GetPosition(overDoor);
-    //serialPort.write(getPosition, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    //var count = 0;
-    //for (var i = 0; i < 10000; i++) {
-    //    count = count + 1;
-    //}
-    /*
-    console.log('DownLimit:' + motorAddress);
-    var downLimit = sdn.DownLimit(motorAddress);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var positionCmd = sdn.SetPosition(overDoor, 1000);
+
+//var getPosition = sdn.GetPosition(overDoor);
+//serialPort.write(getPosition, function (err, results) {
+//    if (err != undefined) {
+//        console.log('err ' + err);
+//        console.log('results ' + results);
+//    }
+//});
+
+//var count = 0;
+//for (var i = 0; i < 10000; i++) {
+//    count = count + 1;
+//}
+/*
+console.log('DownLimit:' + motorAddress);
+var downLimit = sdn.DownLimit(motorAddress);
+serialPort.write(downLimit, function (err, results) {
+    if (err != undefined) {
+        console.log('err ' + err);
+        console.log('results ' + results);
+    }
+});
+ 
+var positionCmd = sdn.SetPosition(overDoor, 1000);
+serialPort.write(positionCmd, function (err, results) {
+    if (err != undefined) {
+        console.log('err ' + err);
+        console.log('results ' + results);
+    }
+});
+ 
+var downLimit = sdn.DownLimit(stairEast);
+serialPort.write(downLimit, function (err, results) {
+    if (err != undefined) {
+        console.log('err ' + err);
+        console.log('results ' + results);
+    }
+});
+ 
+var downLimit = sdn.DownLimit(stairCenter);
+serialPort.write(downLimit, function (err, results) {
+    if (err != undefined) {
+        console.log('err ' + err);
+        console.log('results ' + results);
+    }
+});
+ 
+//var upLimit = sdn.UpLimitGroup(address);
+//serialPort.write(upLimit, function (err, results) {
+//    if (err != undefined) {
+//        console.log('err ' + err);
+//        console.log('results ' + results);
+//    }
+//});
+ 
+var date = new Date();
+date.setSeconds(date.getSeconds() + 10);
+ 
+var j = schedule.scheduleJob(date, function () {
+    var positionCmd = sdn.SetPosition(overDoor, 3500);
     serialPort.write(positionCmd, function (err, results) {
         if (err != undefined) {
             console.log('err ' + err);
             console.log('results ' + results);
         }
     });
-    
-    var downLimit = sdn.DownLimit(stairEast);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    var downLimit = sdn.DownLimit(stairCenter);
-    serialPort.write(downLimit, function (err, results) {
-        if (err != undefined) {
-            console.log('err ' + err);
-            console.log('results ' + results);
-        }
-    });
-    
-    //var upLimit = sdn.UpLimitGroup(address);
-    //serialPort.write(upLimit, function (err, results) {
-    //    if (err != undefined) {
-    //        console.log('err ' + err);
-    //        console.log('results ' + results);
-    //    }
-    //});
-    
-    var date = new Date();
-    date.setSeconds(date.getSeconds() + 10);
-    
-    var j = schedule.scheduleJob(date, function () {
-        var positionCmd = sdn.SetPosition(overDoor, 3500);
-        serialPort.write(positionCmd, function (err, results) {
-            if (err != undefined) {
-                console.log('err ' + err);
-                console.log('results ' + results);
-            }
-        });
-    });
- */
+});
+*/
 
 function GetMotors() {
     return new Promise(function (resolve, reject) {
-        var connectionString = 'SELECT * FROM `' + process.env.dbdevices +'`';
+        var connectionString = 'SELECT * FROM `' + process.env.dbdevices + '`';
         pool.query(connectionString, function (dberr, dbres, dbfields) {
             if (dberr)
                 reject(dberr);
