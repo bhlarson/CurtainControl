@@ -5,18 +5,22 @@
 	>sudo dpkg -i node_latest_armhf.deb
 3) copy node project to raspberry pi path "/home/pi/CurtainControl" with winscp
 3  alt) sync project from git:
-> git clone https://github.com/bhlarson/CurtainControl.git  <- create source code archive
+# create source code archive  
+> git clone https://github.com/bhlarson/CurtainControl.git  
 > cd CurtainControl
-> git pull origin master <- sync with github repository after archive created
-> nmp update <- update dependencies
-> sudo npm install serialport --unsafe-perm --build-from-source <-  install and build serialport
+# sync with github repository after archive created  
+> git pull origin master
+# update dependencies  
+> nmp update
+#  install and build serialport
+> npm install serialport --unsafe-perm --build-from-source  
 4) execute project with debugger
->nodejs RemoteDebug.js server.js
+>node RemoteDebug.js server.js
 5) execute project
->nodejs server.js
+>node server.js
 6) auto start:?	
 	a) Log into to pi as root in putty?
-	b) Copy  ”nodecurtain.service” to /etc/system/system	
+	b) Copy  ï¿½nodecurtain.serviceï¿½ to /etc/system/system	
 	c) Enable and start:
 		$  sudo systemctl enable nodecurtain.service
 		$  sudo systemctl restart nodecurtain.service

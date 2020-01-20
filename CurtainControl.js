@@ -15,7 +15,7 @@ module.exports.Initialize = function (init) {
     return new Promise(function (resolve, reject) {
         var stateData = {initData: init, serialPort:{}};
         try {
-            stateData.serialPort = new SerialPort(stateData.initData.portName, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
+            stateData.serialPort = new SerialPort(stateData.initData.portName, { baudRate: 4800, databits: 8, stopbits: 1, parity: 'odd' , bufferSize: 4096});
             
             console.log("Serial Port " + stateData.initData.portName+ " object " + (typeof serialPort !== 'undefined'));
 
