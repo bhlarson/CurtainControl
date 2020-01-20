@@ -1,15 +1,16 @@
 ﻿console.log("Starting CurtainControl on " + process.platform + " with node version " + process.version);
 require('dotenv').config({ path: './config.env' });
-var express = require('express')
-var app = express();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-var SolarCalc = require('solar-calc');
-var schedule = require('node-schedule');
-var sdn = require('./sdn-protocol');
-var curtains = require('./CurtainControl');
-var mysql = require('mysql');
+var express = require('express');
+const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const sdn = require('./sdn-protocol');
+const curtains = require('./CurtainControl');
+const mysql = require('mysql');
+var SunCalc = require('suncalc2');
+var cronparser = require('cron-parser');
 var log4js = require('log4js');
+
 console.log("All External Dependancies Found");
 
 log4js.configure({
@@ -35,6 +36,148 @@ var pool = mysql.createPool({
 });
 
 console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
+
+function NextEvent(timestamp, schedule) {
+    var events = [];
+  
+    var date = new Date(timestamp);
+    var tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  
+    var solarToday = SunCalc.getTimes(date, process.env.latitude, process.env.longitude);
+    var solarTomorrow = SunCalc.getTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    var lunarToday = SunCalc.getMoonTimes(date, process.env.latitude, process.env.longitude);
+    var lunarTomorrow = SunCalc.getMoonTimes(tomorrow, process.env.latitude, process.env.longitude);
+  
+    schedule.forEach(element => {
+      var scheduledTime = 0;
+      switch (element.timer) {
+        case 'date':
+          if (element.config.date) {
+            scheduledTime = new Date(element.config.date).getTime();
+          }
+          break;
+        case 'timestamp':
+          if (element.config.timestamp) {
+            scheduledTime = element.config.timestamp;
+          }
+          break;
+        case 'chron':
+          var options = {
+            currentDate: new Date(timestamp),
+            iterator: true
+          };
+          var interval = cronparser.parseExpression(element.config.expression, options);
+          scheduledTime = interval.next().value.getTime();
+          break;
+        case 'celestial':
+          if (element.config.when) {
+  
+            var offset = 0;
+            if (element.config.offset) {
+              offset = element.config.offset;
+            }
+  
+            switch (element.config.when) {
+              case 'sunrise':
+                scheduledTime = solarToday.sunrise.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunrise.getTime() + offset;
+                }
+                break;
+              case 'sunset':
+                scheduledTime = solarToday.sunset.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = solarTomorrow.sunset.getTime() + offset;
+                }
+                break;
+              // Moon events conditioned on nighttime, moon phase, and weather
+              case 'moonrise':
+                  scheduledTime = lunarToday.rise.getTime() + offset;
+                  if (scheduledTime < timestamp) {
+                    scheduledTime = lunarTomorrow.rise.getTime() + offset;
+                  }
+                break;
+              case 'moonset':
+                scheduledTime = lunarToday.set.getTime() + offset;
+                if (scheduledTime < timestamp) {
+                  scheduledTime = lunarTomorrow.set.getTime() + offset;
+                }
+                break;
+            }
+          }
+  
+          break;
+      }
+      var howLong = scheduledTime - timestamp;
+      if(howLong >= 0){
+        events.push({ts:scheduledTime, when:new Date(scheduledTime), event:element});
+      }
+    });
+    events.sort((a, b)=>(a.ts > b.ts) ? 1 : -1); // Sort ascending
+      
+    return events
+  }
+
+async function ProcessEvents(curtains, state_data){
+    const groups = await GetGroups();
+    const allGroup = groups.find(element => element.name == "All Windows");
+    const main = groups.find(element => element.name == "Main Floor");
+    const bay = groups.find(element => element.name == "Bay Window");
+    let up = false;
+
+    let closeAll = () =>{
+        cmd = { cmd: "DownLimit", type: "group", addr: bay.address }
+        console.log(cmd);
+        curtains.Start(cmd);
+    }
+
+    let openMain = () =>{
+        cmd = { cmd: "UpLimit", type: "group", addr: bay.address }
+        console.log(cmd);
+        curtains.Start(cmd);
+    }
+
+    var schedule = [
+        { timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
+        { timer: 'celestial', config: { when: 'sunrise', offset: 2*60*60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'celestial', config: { when: 'sunset', offset: -30 * 60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
+        { timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        { timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
+      ];
+
+
+      let promise = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+      var ts = Date.now();
+      var events = NextEvent(ts, schedule);
+    
+      while(true){
+        // Preform events that have occurred
+        // Fire any timed-out events and remove them from the list
+        var now;
+        var fireEvents = true
+        while (fireEvents) {
+          now = Date.now();
+          if (now >= events[0].ts) {
+            if (events[0].event.condition())
+              events[0].event.action();
+            events.shift() // Remove completed event from list
+          }
+          else {
+            fireEvents = false;
+          }
+        }
+        ts = now;  // move timestamp up to last processed event
+        events = NextEvent(ts, schedule);
+        //console.log(JSON.stringify(events,null, 4));
+        //console.log(events[0].ts-ts + ' ' + ts );
+        await promise(events[0].ts-ts); 
+      }
+
+}
 
 
 var port = Number(process.env.nodeport) || 1337;
@@ -132,14 +275,14 @@ http.listen(port, function () {
     console.log('Socket.IO listening on port ' + port);
 });
 
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise Today: ", solar.sunrise.toString());
+var portStr = process.env.serialport;
 
-var solar = new SolarCalc(new Date(), 45.5, -122.8);
-console.log("sunrise ", solar.sunrise);
 
-curtains.Initialize({ portName: process.env.serialport }).then(function (result) {
-    console.log('curtains.Initialize succeeded ' + result);
+//var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
+
+curtains.Initialize({ portName: portStr }).then(function (state_data) {
+    console.log('curtains.Initialize ' + state_data);
+    ProcessEvents(curtains, state_data);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
 });
@@ -272,4 +415,4 @@ function GetGroups() {
 }
 
 module.exports = app;
-console.log("CurtainControl Started")
+console.log("Curtain Control Running")

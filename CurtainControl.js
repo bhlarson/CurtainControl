@@ -94,16 +94,16 @@ module.exports.Start = function (action) {
             console.log('write ' + cmd.toString('hex'));
             var ports = { buffer: cmd };
             state.serialPort.Input(ports)
-            //state.serialPort.write(cmd, function (err, result) {
-            //    if (err) {
-            //        console.log('write error ' + err);
-            //        reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
-            //    }
-            //    else {
-            //        console.log('write succeeded');
-            //        resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
-            //    }
-            //});
+            state.serialPort.write(cmd, function (err, result) {
+                if (err) {
+                    console.log('write error ' + err);
+                    reject({ result: module.exports.CompleteEnum.ACTION_FAIL , error: err });
+                }
+                else {
+                    console.log('write succeeded');
+                    resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
+                }
+            });
         }
     });
 }
