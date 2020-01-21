@@ -94,6 +94,7 @@ module.exports.Start = function (action) {
             console.log('write ' + cmd.toString('hex'));
             var ports = { buffer: cmd };
             state.serialPort.Input(ports)
+            /*
             state.serialPort.write(cmd, function (err, result) {
                 if (err) {
                     console.log('write error ' + err);
@@ -104,9 +105,11 @@ module.exports.Start = function (action) {
                     resolve({ result: module.exports.CompleteEnum.ACTION_COMPLETED });
                 }
             });
+            */
         }
     });
 }
+
 
 module.exports.Stop = function (stopData) { }
 

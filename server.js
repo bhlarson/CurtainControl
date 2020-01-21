@@ -275,13 +275,8 @@ http.listen(port, function () {
     console.log('Socket.IO listening on port ' + port);
 });
 
-var portStr = process.env.serialport;
-
-
-//var serialPort = new SerialPort(portStr, { baudrate: 4800, databits: 8, stopbits: 1, parity: 'odd' });
-
-curtains.Initialize({ portName: portStr }).then(function (state_data) {
-    console.log('curtains.Initialize ' + state_data);
+curtains.Initialize({ portName: process.env.serialport }).then(function (state_data) {
+    console.log('curtains.Initialize:' + process.env.serialport + " result:" + state_data);
     ProcessEvents(curtains, state_data);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
