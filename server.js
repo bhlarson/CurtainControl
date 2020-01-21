@@ -128,24 +128,24 @@ async function ProcessEvents(curtains, state_data){
     let up = false;
 
     let closeAll = () =>{
-        cmd = { cmd: "DownLimit", type: "group", addr: bay.address }
+        cmd = { cmd: "DownLimit", type: "group", addr: allGroup.address }
         console.log(cmd);
-        curtains.Start(cmd);
+        curtains.Start(/*state_data,*/ cmd);
     }
 
     let openMain = () =>{
-        cmd = { cmd: "UpLimit", type: "group", addr: bay.address }
+        cmd = { cmd: "UpLimit", type: "group", addr: main.address }
         console.log(cmd);
-        curtains.Start(cmd);
+        curtains.Start(/*state_data,*/ cmd);
     }
 
     var schedule = [
-        { timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
-        { timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
-        { timer: 'celestial', config: { when: 'sunrise', offset: 2*60*60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
-        { timer: 'celestial', config: { when: 'sunset', offset: -30 * 60 }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
-        { timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
-        { timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
+        //{ timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        //{ timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
+        { timer: 'celestial', config: { when: 'sunrise', offset: 0 }, condition: ()=>{return true;}, action: () => { openMain() } },
+        { timer: 'celestial', config: { when: 'sunset', offset: 30 * 60 }, condition: ()=>{return true;}, action: () => { closeAll() } },
+        //{ timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
+        //{ timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
       ];
 
 
@@ -276,43 +276,49 @@ http.listen(port, function () {
 });
 
 curtains.Initialize({ portName: process.env.serialport }).then(function (state_data) {
-    console.log('curtains.Initialize:' + process.env.serialport + " result:" + state_data);
+    console.log('curtains.Initialize:' + process.env.serialport + " result:" + JSON.stringify(state_data));
+
+    io.on('connection', function (socket) {
+        socket.broadcast.emit('Server Connected');
+        socket.on('disconnect', function () {
+            console.log('Socket.IO  disconnected ' + socket.id);
+        });
+        socket.on('connect_failed', function () {
+            console.log('socket.io connect_failed');
+        });
+        socket.on('reconnect_failed', function () {
+            console.log('socket.io reconnect_failed');
+        });
+        socket.on('error', function (err) {
+            console.log('socket.io error:' + err);
+        });
+        socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+            console.log('Action ' + JSON.stringify(data));
+            curtains.Start(/*state_data,*/ data).then(function (result) { 
+                console.log('curtains.Start result ' + JSON.stringify(result));                
+            }, function (err) {
+                console.log('curtains.Start error ' + JSON.stringify(err));
+            });
+        });
+        socket.on('Command', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
+            console.log('Command ' + JSON.stringify(data));
+            curtains.Start(/*state_data,*/ data).then(function (result) { }, function (err) { });
+        });
+    
+        /*
+        curtains.Output(function (state_data, data) {
+            socket.emit('Message', data);
+        });
+        */
+
+    });
+
     ProcessEvents(curtains, state_data);
 }, function (err) {
     console.log('curtains.Initialize failed ' + err);
 });
 
 var broadcast = 0xFFFFFF;
-
-io.on('connection', function (socket) {
-    socket.broadcast.emit('Server Connected');
-    socket.on('disconnect', function () {
-        console.log('Socket.IO  disconnected ' + socket.id);
-    });
-    socket.on('connect_failed', function () {
-        console.log('socket.io connect_failed');
-    });
-    socket.on('reconnect_failed', function () {
-        console.log('socket.io reconnect_failed');
-    });
-    socket.on('error', function (err) {
-        console.log('socket.io error:' + err);
-    });
-    socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
-        console.log('Action ' + JSON.stringify(data));
-        curtains.Start(data).then(function (result) { }, function (err) {
-            console.log('curtains.Start error ' + err);
-        });
-    });
-    socket.on('Command', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
-        console.log('Command ' + JSON.stringify(data));
-        curtains.Start(data).then(function (result) { }, function (err) { });
-    });
-
-    curtains.Output(function (data) {
-        socket.emit('Message', data);
-    });
-});
 
 
 //var getPosition = sdn.GetPosition(overDoor);

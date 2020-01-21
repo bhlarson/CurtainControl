@@ -7,6 +7,7 @@ else {
     SerialPort = require('serialport');
 }
 
+
 var SP = function () {
     this.active = false;
     this.portName = '/dev/ttyUSB0';
