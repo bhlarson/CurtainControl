@@ -142,8 +142,8 @@ async function ProcessEvents(curtains, state_data){
     var schedule = [
         //{ timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
-        { timer: 'celestial', config: { when: 'sunrise', offset: 0 }, condition: ()=>{return true;}, action: () => { openMain() } },
-        { timer: 'celestial', config: { when: 'sunset', offset: 30 * 60 }, condition: ()=>{return true;}, action: () => { closeAll() } },
+        { timer: 'celestial', config: { when: 'sunrise', offset: 60 * 60 }, condition: ()=>{return true;}, action: () => { openMain() } },
+        { timer: 'celestial', config: { when: 'sunset', offset: 60 * 60 }, condition: ()=>{return true;}, action: () => { closeAll() } },
         //{ timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
       ];
