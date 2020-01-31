@@ -37,103 +37,173 @@ var pool = mysql.createPool({
 
 console.log("mysql.createPool exists=" + (typeof pool !== 'undefined'));
 
+function CreateTables() {
+
+    let createTodos = `create table if not exists todos(
+        id int primary key auto_increment,
+        title varchar(255)not null,
+        completed tinyint(1) not null default 0
+    )`;
+
+    connection.query(createTodos, function (err, results, fields) {
+        if (err) {
+            console.log(err.message);
+        }
+    });
+    CREATE TABLE`curtain_log`(
+        `timestamp` TIMESTAMP NULL DEFAULT NULL,
+        `event` ENUM('command', 'event') NULL DEFAULT NULL,
+        `data` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_bin'
+    )
+}
+
 function NextEvent(timestamp, schedule) {
     var events = [];
-  
+
     var date = new Date(timestamp);
     var tomorrow = new Date(date);
     tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
     var solarToday = SunCalc.getTimes(date, process.env.latitude, process.env.longitude);
     var solarTomorrow = SunCalc.getTimes(tomorrow, process.env.latitude, process.env.longitude);
-  
+
     var lunarToday = SunCalc.getMoonTimes(date, process.env.latitude, process.env.longitude);
     var lunarTomorrow = SunCalc.getMoonTimes(tomorrow, process.env.latitude, process.env.longitude);
-  
-    schedule.forEach(element => {
-      var scheduledTime = 0;
-      switch (element.timer) {
-        case 'date':
-          if (element.config.date) {
-            scheduledTime = new Date(element.config.date).getTime();
-          }
-          break;
-        case 'timestamp':
-          if (element.config.timestamp) {
-            scheduledTime = element.config.timestamp;
-          }
-          break;
-        case 'chron':
-          var options = {
-            currentDate: new Date(timestamp),
-            iterator: true
-          };
-          var interval = cronparser.parseExpression(element.config.expression, options);
-          scheduledTime = interval.next().value.getTime();
-          break;
-        case 'celestial':
-          if (element.config.when) {
-  
-            var offset = 0;
-            if (element.config.offset) {
-              offset = element.config.offset;
-            }
-  
-            switch (element.config.when) {
-              case 'sunrise':
-                scheduledTime = solarToday.sunrise.getTime() + offset;
-                if (scheduledTime < timestamp) {
-                  scheduledTime = solarTomorrow.sunrise.getTime() + offset;
-                }
-                break;
-              case 'sunset':
-                scheduledTime = solarToday.sunset.getTime() + offset;
-                if (scheduledTime < timestamp) {
-                  scheduledTime = solarTomorrow.sunset.getTime() + offset;
-                }
-                break;
-              // Moon events conditioned on nighttime, moon phase, and weather
-              case 'moonrise':
-                  scheduledTime = lunarToday.rise.getTime() + offset;
-                  if (scheduledTime < timestamp) {
-                    scheduledTime = lunarTomorrow.rise.getTime() + offset;
-                  }
-                break;
-              case 'moonset':
-                scheduledTime = lunarToday.set.getTime() + offset;
-                if (scheduledTime < timestamp) {
-                  scheduledTime = lunarTomorrow.set.getTime() + offset;
-                }
-                break;
-            }
-          }
-  
-          break;
-      }
-      var howLong = scheduledTime - timestamp;
-      if(howLong >= 0){
-        events.push({ts:scheduledTime, when:new Date(scheduledTime), event:element});
-      }
-    });
-    events.sort((a, b)=>(a.ts > b.ts) ? 1 : -1); // Sort ascending
-      
-    return events
-  }
 
-async function ProcessEvents(curtains, state_data){
+    schedule.forEach(element => {
+        var scheduledTime = 0;
+        switch (element.timer) {
+            case 'date':
+                if (element.config.date) {
+                    scheduledTime = new Date(element.config.date).getTime();
+                }
+                break;
+            case 'timestamp':
+                if (element.config.timestamp) {
+                    scheduledTime = element.config.timestamp;
+                }
+                break;
+            case 'chron':
+                var options = {
+                    currentDate: new Date(timestamp),
+                    iterator: true
+                };
+                var interval = cronparser.parseExpression(element.config.expression, options);
+                scheduledTime = interval.next().value.getTime();
+                break;
+            case 'celestial':
+                if (element.config.when) {
+
+                    var offset = 0;
+                    if (element.config.offset) {
+                        offset = element.config.offset;
+                    }
+
+                    switch (element.config.when) {
+                        case 'sunrise':
+                            scheduledTime = solarToday.sunrise.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.sunrise.getTime() + offset;
+                            }
+                            break;
+                        case 'sunset':
+                            scheduledTime = solarToday.sunset.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.sunset.getTime() + offset;
+                            }
+                            break;
+                        case 'dusk':
+                            scheduledTime = solarToday.dusk.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.dusk.getTime() + offset;
+                            }
+                            break;
+                        case 'dawn':
+                            scheduledTime = solarToday.dawn.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.dawn.getTime() + offset;
+                            }
+                            break;
+                        case 'nauticalDusk':
+                            scheduledTime = solarToday.nauticalDusk.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.nauticalDusk.getTime() + offset;
+                            }
+                            break;
+                        case 'nauticalDawn':
+                            scheduledTime = solarToday.nauticalDawn.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.nauticalDawn.getTime() + offset;
+                            }
+                            break;
+                        case 'night':
+                            scheduledTime = solarToday.night.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.night.getTime() + offset;
+                            }
+                            break;
+                        case 'nightEnd':
+                            scheduledTime = solarToday.nightEnd.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.nightEnd.getTime() + offset;
+                            }
+                            break;
+                        case 'solarNoon':
+                            scheduledTime = solarToday.solarNoon.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.solarNoon.getTime() + offset;
+                            }
+                            break;
+                        case 'nadir':
+                            scheduledTime = solarToday.nadir.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = solarTomorrow.nadir.getTime() + offset;
+                            }
+                            break;
+                        // Moon events conditioned on nighttime, moon phase, and weather
+                        case 'moonrise':
+                            scheduledTime = lunarToday.rise.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = lunarTomorrow.rise.getTime() + offset;
+                            }
+                            break;
+                        case 'moonset':
+                            scheduledTime = lunarToday.set.getTime() + offset;
+                            if (scheduledTime < timestamp) {
+                                scheduledTime = lunarTomorrow.set.getTime() + offset;
+                            }
+                            break;
+
+
+                    }
+                }
+
+                break;
+        }
+        var howLong = scheduledTime - timestamp;
+        if (howLong >= 0) {
+            events.push({ ts: scheduledTime, when: new Date(scheduledTime), event: element });
+        }
+    });
+    events.sort((a, b) => (a.ts > b.ts) ? 1 : -1); // Sort ascending
+
+    return events
+}
+
+async function ProcessEvents(curtains, state_data) {
     const groups = await GetGroups();
     const allGroup = groups.find(element => element.name == "All Windows");
     const main = groups.find(element => element.name == "Main Floor");
     const bay = groups.find(element => element.name == "Bay Window");
     let up = false;
 
-    let closeAll = () =>{
+    let closeAll = () => {
         cmd = { cmd: "DownLimit", type: "group", addr: allGroup.address }
         console.log(cmd);
         curtains.Start(/*state_data,*/ cmd);
     }
 
-    let openMain = () =>{
+    let openMain = () => {
         cmd = { cmd: "UpLimit", type: "group", addr: main.address }
         console.log(cmd);
         curtains.Start(/*state_data,*/ cmd);
@@ -142,40 +212,40 @@ async function ProcessEvents(curtains, state_data){
     var schedule = [
         //{ timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
-        { timer: 'celestial', config: { when: 'sunrise', offset: 60 * 60 }, condition: ()=>{return true;}, action: () => { openMain() } },
-        { timer: 'celestial', config: { when: 'sunset', offset: 60 * 60 }, condition: ()=>{return true;}, action: () => { closeAll() } },
+        { timer: 'celestial', config: { when: 'dawn', offset: 0 * 60 }, condition: () => { return true; }, action: () => { openMain() } },
+        { timer: 'celestial', config: { when: 'nauticalDusk', offset: 0 * 60 }, condition: () => { return true; }, action: () => { closeAll() } },
         //{ timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
-      ];
+    ];
 
 
-      let promise = ms => new Promise(resolve => setTimeout(resolve, ms));
+    let promise = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-      var ts = Date.now();
-      var events = NextEvent(ts, schedule);
-    
-      while(true){
+    var ts = Date.now();
+    var events = NextEvent(ts, schedule);
+
+    while (true) {
         // Preform events that have occurred
         // Fire any timed-out events and remove them from the list
         var now;
         var fireEvents = true
         while (fireEvents) {
-          now = Date.now();
-          if (now >= events[0].ts) {
-            if (events[0].event.condition())
-              events[0].event.action();
-            events.shift() // Remove completed event from list
-          }
-          else {
-            fireEvents = false;
-          }
+            now = Date.now();
+            if (now >= events[0].ts) {
+                if (events[0].event.condition())
+                    events[0].event.action();
+                events.shift() // Remove completed event from list
+            }
+            else {
+                fireEvents = false;
+            }
         }
         ts = now;  // move timestamp up to last processed event
         events = NextEvent(ts, schedule);
         //console.log(JSON.stringify(events,null, 4));
         //console.log(events[0].ts-ts + ' ' + ts );
-        await promise(events[0].ts-ts); 
-      }
+        await promise(events[0].ts - ts);
+    }
 
 }
 
@@ -294,8 +364,8 @@ curtains.Initialize({ portName: process.env.serialport }).then(function (state_d
         });
         socket.on('Action', function (data) { // {cmd: direction, type:window.type, addr: window.addr}
             console.log('Action ' + JSON.stringify(data));
-            curtains.Start(/*state_data,*/ data).then(function (result) { 
-                console.log('curtains.Start result ' + JSON.stringify(result));                
+            curtains.Start(/*state_data,*/ data).then(function (result) {
+                console.log('curtains.Start result ' + JSON.stringify(result));
             }, function (err) {
                 console.log('curtains.Start error ' + JSON.stringify(err));
             });
@@ -304,7 +374,7 @@ curtains.Initialize({ portName: process.env.serialport }).then(function (state_d
             console.log('Command ' + JSON.stringify(data));
             curtains.Start(/*state_data,*/ data).then(function (result) { }, function (err) { });
         });
-    
+
         /*
         curtains.Output(function (state_data, data) {
             socket.emit('Message', data);
