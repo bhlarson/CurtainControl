@@ -50,11 +50,12 @@ function CreateTables() {
             console.log(err.message);
         }
     });
+    /*
     CREATE TABLE`curtain_log`(
         `timestamp` TIMESTAMP NULL DEFAULT NULL,
         `event` ENUM('command', 'event') NULL DEFAULT NULL,
         `data` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_bin'
-    )
+    )*/
 }
 
 function NextEvent(timestamp, schedule) {
