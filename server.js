@@ -214,7 +214,7 @@ async function ProcessEvents(curtains, state_data) {
         //{ timer: 'chron', config: { expression: '45 5 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: '* 7 * * 0,6' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(1)") } },
         { timer: 'celestial', config: { when: 'dawn', offset: 0 * 60 }, condition: () => { return true; }, action: () => { openMain() } },
-        { timer: 'celestial', config: { when: 'nauticalDusk', offset: 0 * 60 }, condition: () => { return true; }, action: () => { closeAll() } },
+        { timer: 'celestial', config: { when: 'dusk', offset: 0 * 60 }, condition: () => { return true; }, action: () => { closeAll() } },
         //{ timer: 'chron', config: { expression: '03 23 * * 1-5' }, condition: ()=>{return true;}, action: () => { console.log("rly1.writeSync(0)") } },
         //{ timer: 'chron', config: { expression: ' */1 * * * *' }, condition: ()=>{return true;}, action: () => { if(up){openMain()} else{closeAll()} up=!up;  } },
     ];
