@@ -138,19 +138,270 @@ This document directs future implementation and verification of `main.py`, its s
 When a requirement conflicts with undocumented legacy behavior, this specification takes precedence. The existing JavaScript source is reference material for compatible SDN commands and data fields, not for carrying forward defects.
 
 ## Program Generation Process
+**Request**
+- The user requests the AI agent to create/modify/evaluate the [drawing_check.py](drawing_check.py) using this specification.
+- Input for each iteration includes:
+    - The original request
+    - This specification file [drawing_check_program_spec.md](drawing_check_program_spec.md)
+    - The current program [drawing_check.py](drawing_check.py)
+    - Prompts and in-context learning files described in the [Prompts](#prompts) section
+    - The current tests described in the [Tests](#tests) section
+    - The previous AI agent iteration report sections in [drawing_check_implementation.md](drawing_check_implementation.md)
+- Output for each iteration includes:
+    - Updated program [drawing_check.py](drawing_check.py)
+    - Updated prompts and in-context learning files described in the [Prompts](#prompts) section
+    - Updated tests described in the [Tests](#tests) section
+    - Updated program generation report section appended to [drawing_check_implementation.md](drawing_check_implementation.md) containing the details of this iteration as described in the [Program Generation Report](#program-generation-report) section and test results.
 
-For each implementation iteration, the generation agent shall:
+**Each iteration of the program generation process must execute one or more iterations of the Plan → Act → Critique → Revise (PACR) loop as described below:**
 
-1. Read this specification and inspect relevant existing implementation and tests.
-2. Plan the smallest coherent change, mapping it to requirement IDs.
-3. Implement typed Python code, documentation, and tests together.
-4. Run formatting, linting if configured, and the applicable unit/integration tests.
-5. Record the change, results, risks, and unresolved items in the Program Generation Report.
-6. Do not add SQL, Socket.IO, legacy browser dependencies, or undocumented hardware behavior. Browser assets shall remain dependency-free and within the explicitly specified `static/` client.
+- **Plan** — given the iteration inputs document a complete strategy to accomplish the request:
 
-The agent shall use dependency injection or a transport abstraction so protocol and API tests run without physical serial hardware. It shall never send test commands to physical curtains unless an explicitly configured integration environment is being used.
+    Document the plan as described in [Program Generation Report](#program-generation-report) describing each step of the plan in detail.  At each iteration, the current plans should address the limitations and critiques of previous iteration.
+    The plan priorities in order are:
+    1. describe the request and objective
+    1. describe the new or changed functionality to be implemented
+    1. From previous AI Program Generation Report Critique or Test sections, describe how to address previous issues that are unaddressed
+    1. **Proposal**: describe a proposal to implement the requested functionality and address unaddressed issues from previous critiques
+    1. **Function/Object Table**: Create/update table describing each function and object in the program:
+
+        | Function/Object | Purpose | Inputs | Outputs | Memory Used | Processing Steps | Libraries Used | Requirement Addressed | Type (New/Modified/Existing) |
+        |----------------|---------|--------|---------|-------------|------------------|----------------|-----------------------|-------------------------------|
+        [[List each function and object in the program with its purpose, inputs, outputs, memory used, processing steps, libraries used, requirement addressed, and type (new/modified/existing).]]
+
+    1. **Relationships**: Describe the relationships between the functions and objects in the table
+    1. **Program Flow Graph**:  Based on the function/object table, [drawing_check.py](drawing_check.py), defines the program_flow_graph function to reflect the full program structure and relationships between objects and functions in the program:
+    ```python
+        import networkx as nx
+        from pyvis.network import Network
+        import matplotlib.pyplot as plt
+
+        def program_flow_graph(html_graph_path: str = "program_flow_graph.html", png_graph_path: str = None) -> str:
+
+        # List all top-level functions and classes
+        # Top-level functions & orchestrators (kept updated per Edit 9/24/2025: 3:19 follow-up graph maintenance)
+        nodes = [
+            "parse_args",
+            "main",
+            # Additional nodes
+        ]
+        # Links between modules - this represents the program flow and dependencies
+        edges = [
+            # Main program flow
+            {"source": "parse_args", "target": "main"},
+            # Additional edges
+        ]
+
+        graph_data = {
+            "directed": True,
+            "multigraph": False,
+            "nodes": nodes,
+            "edges": edges
+        }
+
+        # Create HTML visualization
+        graph = nx.node_link_graph(graph_data, edges="edges")
+
+        if png_graph_path:
+            plt.figure(figsize=(12, 8))
+            pos = nx.spring_layout(graph)
+            nx.draw(graph, pos, with_labels=True, node_size=2000, node_color="lightblue", font_size=10, font_weight="bold", arrows=True)
+            plt.savefig(png_graph_path)
+
+        net = Network(notebook=True, cdn_resources='remote', directed=True, height='1000px', width='100%', bgcolor="#222222", font_color="white", select_menu=True)
+        net.from_nx(graph)
+
+        net.write_html(html_graph_path)
+
+    ```
+    1. Output the program structure graph as an HTML and PNG file using pyvis.network and provide a link to the file in the plan.
+    1. Display an image of the program structure graph image in the program report for this iteration.
+    1. List potential shortcomings of the proposed structure
+    1. Identify libraries that are not included in requirements.txt
+    1. Evaluate if the necessary libraries in requirements.txt
+    1. Describe the [Functional Requirements](#functional-requirements) that are not addressed by the plan
+    1. Describe the [Functional Requirements](#functional-requirements) that partially addressed by the plan
+    1. Describe error scenarios and how they will be handled in the plan
+    1. Describe errors that are not handled in the plan
+    1. Evaluate the limitations of the current plan
+    1. Propose refinements to address the limitations
+
+    After planning the program implementation, plan the unit, integration, end to end tests needed to validate the program implementation:
+    1. **Test table**: Create/Update the table with the tests to perform:
+
+        |Requirement/Feature/Error| Type | Function/Class | Input | Expected Output | Description |
+        |---|---|---|---|---|---|
+        [[List each test to be performed with the following columns:
+        - Requirement/Feature/Error: The specification requirement, feature, or error being tested
+        - Type: unit/integration/end to end
+        - Function/Class: The function or class being tested
+        - Input: The input to the function or class
+        - Expected Output: The expected output from the function or class
+        - Description: A description of the test
+        ]]
+
+    1. Each test identified in the specification must be implemented in the tests section
+    1. Define additional tests so each function and class is tested
+    1. Write each function and class in the main program experiments/swarm_feature_detection.py
+    1. Verify each function and class with the unit tests
+    1. Rewrite each the function and class that does not pass the unit tests to address the issues
+    1. Verify that all unit tests pass
+    1. Integrate the functions and classes as per the program graph
+    1. Create integration tests in the file "experiments/test/swarm_feature_detection_integration.py" that test the following:
+        a. Tests the program with the default PDF and verify the output json file
+        b. Verify the saved page image from the default PDF
+        c. Tests the Azure OpenAI API call with to the Azure OpenAI server using the provided credentials and verify the output JSON structure
+        d. Tests error handling by providing invalid inputs and verifying that the program handles them gracefully
+    1. Create the end to end test "experiments/test/swarm_feature_detection_end_to_end.py" for the  full program with the default PDF and verify the output
+    1. Rewrite and re-test any part of the program that does not work as expected
+    1. Create a program report "experiments/swarm_feature_detection_implementation.md" that lists: 
+        - all steps performed in the program generation process, 
+        - tests command line to run the unit tests, integration tests, and end to end tests,
+        - issues found for each test,
+        - how each issue was resolved
+        - the final status of the program
+        - limitations of the program
+        - next steps for improving the program
+    1. For subsequent program changes, update, "experiments/swarm_feature_detection_implementation.md" with a new section
+        at the end of the document that lists:
+        - the date of the changes
+        - the prompt the initiated the changes
+        - the model used to make the changes
+        - list each file and the line numbers that were changed
+        - the changes made to the program
+        - issues found
+        - how each issue was resolved
+        - tests command line to run the unit tests, integration tests, and end to end tests
+        - the final status of the program after the changes
+
+    **Judge**: Judge the plan quality based on:
+    1. It addresses all aspects of the request
+    1. it addresses all unaddressed issues from previous critiques
+    1. it addresses all [Functional Requirements](#functional-requirements)
+    1. it addresses all program structure requirements in the [Program](#program) section
+    1. it addresses all error handling requirements
+    1. it provides a simple implementation than can be reliably implemented
+    1. it provides a simple implementation can be fully tested
+    1. it makes the fewest changes to the existing program
+
+    Iteratively improve the plan is until it is their or no future improvements noted or a maximum number of plan iterations is reached (default 5)
+
+
+- **Act** — Execute: using the selected AI model and evaluation mode, 
+    1. Update the tests, programs, and prompts as per the plan.
+    1. Execute the tests.
+    1. Document the test results. 
+- **Critique** — Evaluate the results against the expected outcomes and identify any discrepancies or areas for improvement.
+    1. Describe the critique of the changes made in this iteration
+    1. Describe the test results of this iteration
+    1. Describes how well the request was satisfied
+    1. List the implementation's shortcomings in satisfying the request
+    1. Describe any new issues that arose during the implementation
+    1. Describe shortcomings accomplishing the functional requirements
+    1. Describe shortcomings accomplishing the program structure requirements
+    1. Describe shortcomings in error handling
+    1. Describe how the program structure can be improved to better satisfy the request and simplify the implementation
+    1. Describe how the tests can be improved to better validate the implementation
+- **Revise** — 
+    1. Determine if a next iteration is needed.  
+    1. Restate the original objective.  
+    1. Define a refined prompt that encompasses the original objective and addresses the critique, and plan based on the critique and 
+       test results. Iterate the PACR loop until the requested functionality is implemented and tests are successful or a maximum number of iterations is reached.  
+  If the program is not satisfactory after the maximum number of iterations (default=5), document the limitations and next steps in the AI Program Generation Report.
+  Document the revised request textin the AI Program Generation Report.
+- **Iterate** — Repeat the PACR loop until the program meets all functional requirements and passes all tests or a maximum number of iterations is reached (default 7).
 
 ## Program Generation Report
+[drawing_check_implementation.md](drawing_check_implementation.md) is an AI generated, human edited report of the program generation process. Each run of the AI program generation, will add a new section to the end of the file experiments/DrawingCheck_implementation. The report should be structured as follows:
+
+    # Design Embeddings Implementation
+
+    ## Table of Contents
+    - [Introduction](#introduction): introduce this program generation iteration
+    - Program Generation Iterations: Describe the program generation algorithm
+      - Iteration Name: describe the iteration with the following sections:
+        - Plan: describe the plan for this iteration
+        - Act: describe the changes made in this iteration
+        - Test Results: describe the test results for this iteration
+        - Critique: describe the critique of this iteration
+        - Revise: describe the revised prompt for the next iteration based
+
+
+    ## Introduction
+    <Describe the objective of this program generation iteration based on the program specification>
+
+    ## Program Generation Iterations
+    ### <Iteration Name>
+    1. **Request**
+        - **date**: <date of the change>
+        - **prompt**: <prompt that initiated the change>
+        - **git_tag**: <the git tag this change is applied to>
+        - **model**: <model used to make the change>
+
+    #### Plan <Plan Iteration Description>
+    1. **Functionality**: describe the new or changed functionality to be implemented
+    1. **Critique**: describe unaddressed issues from previous iterations addressed in [drawing_check_implementation.md](drawing_check_implementation.md) that are being considered in in this 1. **Proposal**: reasoning proposal to implement the requested functionality and address unaddressed issues from previous critiques
+    1. **Relationships**: Describe the relationships between the functions and objects in the table
+    1. **Function/Object Table**: Report the function/object table for each reasoning iteration as described in the [Program Generation Process](#program-generation-process) section
+    1. **Program Flow Graph**: Display the program structure graph image for each reasoning iteration created as per the [Program Generation Process](#program-generation-process) section
+    1. List potential shortcomings of the proposed structure
+    1. Identify libraries that are not included in requirements.txt
+    1. Evaluate if the necessary libraries in requirements.txt
+    1. Describe the [Functional Requirements](#functional-requirements) that are not addressed by the plan
+    1. Describe the [Functional Requirements](#functional-requirements) that partially addressed by the plan
+    1. Describe error scenarios and how they will be handled in the plan
+    1. Describe errors that are not handled in the plan
+    1. Evaluate the limitations of the current plan
+    1. Propose refinements to address the limitations
+    1. **Test table**: Create/Update the table with the tests to perform as described in the [Program Generation Process](#program-generation-process)
+    1. **Judge**: report the plan judgement based on the criteria in the [Program Generation Process](#program-generation-process) section
+
+    #### Act
+    **Change List** List each program changes in the following table
+    |File| Lines | Requirement/Feature/Error | Description |
+    |---|---|---|---|
+    |   |   |   |   |
+
+    #### Test Results
+    - Test commands to run the tests
+    - Unit test final results
+    - Integration test final results
+    - End to end test final results
+
+    #### Critique
+    1. Describe the critique of the changes made in this iteration
+    1. Describe the test results of this iteration
+    1. Describes how well the request was satisfied
+    1. List the implementation's shortcomings in satisfying the request
+    1. Describe any new issues that arose during the implementation
+    1. Describe shortcomings accomplishing the functional requirements
+    1. Describe shortcomings accomplishing the program structure requirements
+    1. Describe shortcomings in error handling
+    1. Describe how the program structure can be improved to better satisfy the request and simplify the implementation
+    1. Describe how the tests can be improved to better validate the implementation
+    #### Revise
+    - Restate the original objective
+    - Why is the current program not satisfactory
+    - What is the current iteration number and has the maximum number of iterations been reached
+    - Should the PACR loop continue (yes/no)
+    - How should the request be revised based on the critique to address the issues found and satisfy the original request
+
+    the section contents are describe in the [Program Generation Report](#program-generation-report) section as shown in the following example: 
+
+        # Design Embeddings Implementation
+
+        ## Initial program creation
+
+        ### Request
+
+        - **date**: 10/6/2025
+        - **prompt**: Create a Python program to generate embeddings for engineering drawing features.
+        - **git_tag**: v1.0.0
+        - **model**: gpt-5
+
+        ### Plan
+        Create a Python program named experiments/DrawingCheck.py that implements the following capabilities:
+        1. feature_sections: ...
 
 ### Initial specification creation
 
