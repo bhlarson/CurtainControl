@@ -1,0 +1,360 @@
+schema_version: 1
+
+metadata:
+  source: "Documents/CurtainAddresses.png"
+  source_date_format: "MM/DD/YYYY"
+  zero_down_limit_counts_mean: "not_calibrated"
+
+curtains:
+  - address: "0x65f07"
+    name: "Front Door"
+    description: "Main Over Door"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67121"
+    name: "Bay West"
+    description: "Main Bay West"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 225
+      down_limit_counts: 0
+
+  - address: "0x671e4"
+    name: "Bay East"
+    description: "Main Bay East"
+    installed: 2015-09-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 135
+      down_limit_counts: 0
+
+  - address: "0x6792f"
+    name: "Bedroom SW1"
+    description: "Basement Bedroom Southwest 1"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x67930"
+    name: "Bedroom SW3"
+    description: "Basement Bedroom Southwest 3"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x6793b"
+    name: "Bedroom SW4"
+    description: "Basement Bedroom Southwest 4"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x6793f"
+    name: "Bedroom SW2"
+    description: "Basement Bedroom Southwest 2"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x67944"
+    name: "Sunroom SE1"
+    description: "Main Sunroom Southeast 1"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x6794f"
+    name: "Sunroom SW1"
+    description: "Main Sunroom Southwest 1"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x6796e"
+    name: "Sunroom SE3"
+    description: "Main Sunroom Southeast 3"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67981"
+    name: "Sunroom SW4"
+    description: "Main Sunroom Southwest 4"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x67982"
+    name: "Sunroom SW2"
+    description: "Main Sunroom Southwest 2"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x67984"
+    name: "Sunroom SW3"
+    description: "Main Sunroom Southwest 3"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 270
+      down_limit_counts: 0
+
+  - address: "0x6799b"
+    name: "Bedroom SE5"
+    description: "Basement Bedroom Southeast 5"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x679d2"
+    name: "Bedroom SE4"
+    description: "Basement Bedroom Southeast 4"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x679d7"
+    name: "Bedroom SE3"
+    description: "Basement Bedroom Southeast 3"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67c9f"
+    name: "Bay Center"
+    description: "Main Bay South"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67cd9"
+    name: "Bedroom SE2"
+    description: "Basement Bedroom Southeast 2"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67d0a"
+    name: "Sunroom SE5"
+    description: "Main Sunroom Southeast 5"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67d0c"
+    name: "Sunroom SE4"
+    description: "Main Sunroom Southeast 4"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67d0e"
+    name: "Sunroom SE2"
+    description: "Main Sunroom Southeast 2"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+  - address: "0x67d0f"
+    name: "Bedroom SE1"
+    description: "Basement Bedroom Southeast 1"
+    installed: 2015-08-08
+    configuration:
+      protocol: "ST30_RS485"
+      orientation_degrees: 180
+      down_limit_counts: 0
+
+switches:
+  - address: "0x1"
+    name: "Switch Basement"
+    description: "Basement Switch"
+    model: "SDN_SWITCH"
+    installed: 2017-04-07
+
+  - address: "0x10001"
+    name: "Switch Main"
+    description: "Main Floor Switch"
+    model: "SDN_SWITCH"
+    installed: 2017-04-07
+
+groups:
+  - address: "0x101"
+    name: "Basement"
+    description: "Basement"
+    curtains:
+      - "Bedroom SE1"
+      - "Bedroom SE2"
+      - "Bedroom SE3"
+      - "Bedroom SE4"
+      - "Bedroom SE5"
+      - "Bedroom SW1"
+      - "Bedroom SW2"
+      - "Bedroom SW3"
+      - "Bedroom SW4"
+
+  - address: "0x102"
+    name: "South Basement"
+    description: "South Basement"
+    curtains:
+      - "Bedroom SE1"
+      - "Bedroom SE2"
+      - "Bedroom SE3"
+      - "Bedroom SE4"
+      - "Bedroom SE5"
+
+  - address: "0x103"
+    name: "West Basement"
+    description: "West Basement"
+    curtains:
+      - "Bedroom SW1"
+      - "Bedroom SW2"
+      - "Bedroom SW3"
+      - "Bedroom SW4"
+
+  - address: "0x104"
+    name: "Corner Basement"
+    description: "South Corner Basement"
+    curtains:
+      - "Bedroom SE4"
+      - "Bedroom SE5"
+
+  - address: "0x10101"
+    name: "Sunroom"
+    description: "Sunroom"
+    curtains:
+      - "Sunroom SE1"
+      - "Sunroom SE2"
+      - "Sunroom SE3"
+      - "Sunroom SE4"
+      - "Sunroom SE5"
+      - "Sunroom SW1"
+      - "Sunroom SW2"
+      - "Sunroom SW3"
+      - "Sunroom SW4"
+
+  - address: "0x10102"
+    name: "South Sunroom"
+    description: "South Sunroom"
+    curtains:
+      - "Bedroom SE1"
+      - "Sunroom SE2"
+      - "Sunroom SE3"
+      - "Bedroom SE4"
+      - "Sunroom SE5"
+
+  - address: "0x10103"
+    name: "West Sunroom"
+    description: "West Sunroom"
+    curtains:
+      - "Sunroom SW1"
+      - "Sunroom SW2"
+      - "Sunroom SW3"
+      - "Sunroom SW4"
+
+  - address: "0x10110"
+    name: "Main Floor"
+    description: "Main Floor"
+    curtains:
+      - "Bay East"
+      - "Bay Center"
+      - "Bay West"
+      - "Front Door"
+      - "Sunroom SE1"
+      - "Sunroom SE2"
+      - "Bedroom SE3"
+      - "Bedroom SE4"
+      - "Sunroom SE5"
+      - "Sunroom SW1"
+      - "Bedroom SW2"
+      - "Sunroom SW3"
+      - "Sunroom SW4"
+
+  - address: "0x10201"
+    name: "Entry"
+    description: "Entry"
+    curtains:
+      - "Bay East"
+      - "Bay Center"
+      - "Bay West"
+      - "Front Door"
+
+  - address: "0x10202"
+    name: "Bay Window"
+    description: "Bay Window"
+    curtains:
+      - "Bay East"
+      - "Bay Center"
+      - "Bay West"
+
+  - address: "0x10203"
+    name: "Front Door"
+    description: "Front Door"
+    curtains:
+      - "Front Door"
+
+  - address: "0x100000"
+    name: "All Windows"
+    description: "All Windows"
+    curtains:
+      - "Bay East"
+      - "Bay Center"
+      - "Bay West"
+      - "Bedroom SW1"
+      - "Bedroom SW2"
+      - "Bedroom SW3"
+      - "Bedroom SW4"
+      - "Bedroom SE1"
+      - "Bedroom SE2"
+      - "Bedroom SE3"
+      - "Bedroom SE4"
+      - "Bedroom SE5"
+      - "Front Door"
+      - "Sunroom SE1"
+      - "Sunroom SE2"
+      - "Sunroom SE3"
+      - "Sunroom SE4"
+      - "Sunroom SE5"
+      - "Sunroom SW1"
+      - "Sunroom SW2"
+      - "Sunroom SW3"
+      - "Sunroom SW4"

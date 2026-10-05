@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+pyserial
+PyYAML
+croniter
+astral
+ephem
+httpx

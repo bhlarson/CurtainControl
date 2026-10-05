@@ -20,6 +20,11 @@
   - [SDN Version Compatibility Matrix](#sdn-version-compatibility-matrix)
   - [SDN Compatibility Recommendations](#sdn-compatibility-recommendations)
   - [SDN Simulator and Fidelity Comparison](#sdn-simulator-and-fidelity-comparison)
+  - [CurtainControl Application Orchestration](#curtaincontrol-application-orchestration)
+  - [Control Targets and Environmental Automation](#control-targets-and-environmental-automation)
+  - [CurtainControl Interface Review](#curtaincontrol-interface-review)
+  - [Responsive Web Interface](#responsive-web-interface)
+  - [Test Specification Expansion](#test-specification-expansion)
 - [Program](#program)
   - [Program Description](#program-description)
     - [SDN](#sdn)
@@ -37,6 +42,21 @@
       - [REST and Live State](#rest-and-live-state)
       - [Testing and Code Generation](#testing-and-code-generation)
       - [Mocked, Simulated, and Real Communication Backends](#mocked-simulated-and-real-communication-backends)
+    - [CurtainControl](#curtaincontrol)
+      - [Legacy capability and requested-feature review](#legacy-capability-and-requested-feature-review)
+      - [Design references and adopted patterns](#design-references-and-adopted-patterns)
+      - [Responsibilities and boundaries](#responsibilities-and-boundaries)
+      - [Class interface](#class-interface)
+      - [Unified control flow](#unified-control-flow)
+      - [Target and actual state model](#target-and-actual-state-model)
+      - [Input priority, durable overrides, and locks](#input-priority-durable-overrides-and-locks)
+      - [Target reconciliation](#target-reconciliation)
+      - [Manual web control](#manual-web-control)
+      - [Autonomous scheduling and solar control](#autonomous-scheduling-and-solar-control)
+      - [Environmental event rules](#environmental-event-rules)
+      - [Durable control-state persistence](#durable-control-state-persistence)
+      - [Conflict, safety, and lifecycle rules](#conflict-safety-and-lifecycle-rules)
+      - [CurtainControl testing](#curtaincontrol-testing)
   - [Use Cases](#use-cases)
   - [Program Structure](#program-structure)
     - [Module Architecture](#module-architecture)
@@ -47,6 +67,7 @@
   - [SDN Protocol Compatibility](#sdn-protocol-compatibility)
   - [System-Control Data Sources](#system-control-data-sources)
   - [Scheduling](#scheduling)
+  - [Web Interface](#web-interface)
   - [Alexa Control](#alexa-control)
   - [Program Environment](#program-environment)
 - [Prompts](#prompts)
@@ -54,6 +75,7 @@
 - [Tests](#tests)
   - [Unit Tests](#unit-tests)
   - [Integration Tests](#integration-tests)
+  - [System-Wide Tests](#system-wide-tests)
   - [End-to-End Tests](#end-to-end-tests)
 - [General Program Structure](#general-program-structure)
   - [Dependency-injected application services](#dependency-injected-application-services)
@@ -65,7 +87,7 @@
 
 ## Introduction
 
-`main.py` shall replace the existing Node.js CurtainControl server with a Python FastAPI service for operating Somfy SDN curtains through either a real RS-485 serial adapter or the required `SdnSim` backend. It preserves the existing device commands, SDN packet format, serial settings, and scheduled-operation capability. It deliberately excludes the existing static HTML, jQuery, and Socket.IO browser interface.
+`main.py` shall replace the existing Node.js CurtainControl server with a Python FastAPI service for operating Somfy SDN curtains through either a real RS-485 serial adapter or the required `SdnSim` backend. It preserves the existing device commands, SDN packet format, serial settings, and scheduled-operation capability. It replaces the legacy jQuery/Socket.IO pages with a dependency-free responsive static client served by FastAPI.
 
 The service is started with the path to one JSON configuration file as a required command-line argument. That file is the sole persistent source of configuration; the program shall not require, connect to, or depend on an external SQL database. The FastAPI HTTP API is the programmatic control surface for automation clients and administration.
 
@@ -93,10 +115,10 @@ Inputs are command-line options, the JSON configuration document, HTTP API reque
 **A:** Remove the dependency on an external SQL database. System configuration is in a JSON file specified as a command-line parameter.
 
 **Q:** Should the existing UI be retained?  
-**A:** No interface is required. The new server is headless.
+**A:** At that stage no interface was required. The later web-interface request supersedes this answer: the server now serves the new static client, but does not retain the legacy UI or Socket.IO.
 
 **Q:** How should the small Python project be organized?  
-**A:** Use `main.py` and a small set of support classes for serial communication, SDN commands, system control, data sources, scheduling, and optional Alexa control.
+**A:** Use `main.py` and a small set of support classes for serial communication, SDN commands, system control, data sources, and scheduling. Alexa is now deferred.
 
 **Q:** How should runtime dependencies and credentials be handled?  
 **A:** Declare runtime packages in `requirements.txt`. Store secrets in a separate `creds.yaml` file with restricted read access on Raspberry Pi; do not put secrets in `config.json` or source control.
@@ -105,13 +127,13 @@ Inputs are command-line options, the JSON configuration document, HTTP API reque
 
 | Instruction topic | Evidence / answer | Resulting specification |
 |---|---|---|
-| Purpose, inputs, outputs, and processing | The existing server handles SDN commands, serial I/O, configuration, and scheduling. | Implement a headless FastAPI service using local JSON configuration and an RS-485 transport. |
+| Purpose, inputs, outputs, and processing | The existing server handles SDN commands, serial I/O, configuration, and scheduling. | Implement a FastAPI service using local JSON configuration, an RS-485 transport, and a small static client. |
 | Storage | The creator requires a JSON file named at the command line and no external SQL database. | Load, validate, and atomically persist one local JSON configuration document; do not include a database driver. |
-| User interface | The creator specified no interface. | Do not serve static files, browser pages, or Socket.IO. Expose documented HTTP APIs only. |
+| User interface | The initial creator interview specified no interface; a later explicit request requires one. | Serve the new dependency-free responsive client from `static/`; do not carry forward jQuery, Socket.IO, or the legacy pages. |
 
 ## Specification Description
 
-This document directs implementation and verification of `main.py` and its support modules. It is the source of truth for the new Python service. The server provides REST control and a WebSocket state-event stream for external clients, including a future web interface. Serving the legacy browser UI or using Socket.IO is not required.
+This document directs future implementation and verification of `main.py`, its support modules, and the specified static client. It is the source of truth for the new Python service. The completed server shall provide REST control, a WebSocket state-event stream, and the responsive client under `static/`. Serving the legacy browser UI or using Socket.IO is prohibited. The current web-interface work is specification-only.
 
 When a requirement conflicts with undocumented legacy behavior, this specification takes precedence. The existing JavaScript source is reference material for compatible SDN commands and data fields, not for carrying forward defects.
 
@@ -124,7 +146,7 @@ For each implementation iteration, the generation agent shall:
 3. Implement typed Python code, documentation, and tests together.
 4. Run formatting, linting if configured, and the applicable unit/integration tests.
 5. Record the change, results, risks, and unresolved items in the Program Generation Report.
-6. Do not add SQL, browser assets, Socket.IO, or undocumented hardware behavior without an explicit specification update.
+6. Do not add SQL, Socket.IO, legacy browser dependencies, or undocumented hardware behavior. Browser assets shall remain dependency-free and within the explicitly specified `static/` client.
 
 The agent shall use dependency injection or a transport abstraction so protocol and API tests run without physical serial hardware. It shall never send test commands to physical curtains unless an explicitly configured integration environment is being used.
 
@@ -194,6 +216,41 @@ Future reports shall include the request, plan, requirement mapping, changed fil
 - **Decision**: Select exactly one real or simulated backend when constructing `SdnApi`; keep the production codec/controller path unchanged; record monotonic raw TX/RX traces for both; and compare comparable traces using explicit sequence, wire, value, timing, and outcome component scores.
 - **Status**: Simulator architecture, trace schemas, scoring rules, configuration, diagrams, and mock/simulator/hardware tests added; calibration still requires real hardware captures.
 
+### CurtainControl Application Orchestration
+
+- **Date**: 2026-10-04
+- **Request**: Define a `CurtainControl` class that preserves manual web control and autonomous fixed-time/solar control from the Node server.
+- **Decision**: Add one application-level facade above `CurtainController`. FastAPI and scheduled occurrences enter through `CurtainControl`; `CurtainController` continues to own SDN execution, monitoring, and verification. The later web-interface decision below supersedes only the original headless-client decision.
+- **Status**: Class contract, scheduling rules, architecture, functional requirements, and named tests added; implementation remains future work.
+
+### Control Targets and Environmental Automation
+
+- **Date**: 2026-10-04
+- **Request**: Extend `CurtainControl` to maintain motor/group targets, accept web, Somfy local-button, and autonomous intent subject to durable overrides and locks, reconcile physical position, and support cron plus solar, lunar, weather, temperature, and extensible environmental events.
+- **Decision**: Make per-curtain desired targets durable application state owned by `CurtainControl`; make group targets versioned intent expanded to member targets; consume truthful `MotorState` observations from `CurtainController`; and use bounded reconciliation rather than placing policy in the SDN layer. Define application locks independently from unresolved hardware SDN lock commands. Define environmental automation as validated edge-triggered rules with freshness, hysteresis, debounce, and cooldown.
+- **Status**: Control-state models, class methods, priority/reconciliation rules, persistence, environmental scheduling, API requirements, and CC09–CC16 tests added. Implementation and installed-hardware validation remain future work.
+
+### CurtainControl Interface Review
+
+- **Date**: 2026-10-04
+- **Request**: Review missing Node and requested capabilities, compare current control patterns, simplify/generalize manual and autonomous control, add an interaction diagram, and clarify `CurtainControl` boundaries.
+- **Decision**: Distinguish working Node behavior from protocol-only helpers and broken stubs; normalize every producer into one `ControlIntent` accepted by `CurtainControl.submit()`; keep protection changes separate; model desired/reported/delta state; use capability flags and truthful cached state; and keep all SDN execution/feedback in `CurtainController`/`SdnApi`. Draw from Home Assistant cover entities, Matter Window Covering, AWS IoT desired/reported shadows, Kubernetes reconciliation, and Alexa state/change reporting without adding those platforms as dependencies.
+- **Status**: Review tables, simplified interface, architecture/sequence visualization, adapter rules, state conventions, requirements, and tests updated. Jog and hardware SDN locks remain explicitly deferred pending verified protocol/hardware evidence.
+
+### Responsive Web Interface
+
+- **Date**: 2026-10-04
+- **Request**: Provide a mobile/PC static interface optimized for autonomous operation and one-press room control, with home, configuration, and schedule tools; defer Alexa.
+- **Decision**: Serve a dependency-free HTML/CSS/JavaScript client from `static/`. Quick tiles use local SVG symbols with the requested semantic `fa-*` names, display controller-observed state, and toggle open/closed in one press. REST performs mutations and the existing WebSocket triggers truthful live-state refresh. Calibration is an explicit confirmed administrative operation. Alexa has no runtime implementation in this version.
+- **Status**: Behavior, architecture, routes, directory layout, and acceptance tests are specified. Only placeholder directories exist; no HTML, CSS, JavaScript, icon artwork, FastAPI static route, or browser behavior has been implemented.
+
+### Test Specification Expansion
+
+- **Date**: 2026-10-04
+- **Request**: Expand code-generation testing so every Tests subsection has an implementation table, system-wide cases define inputs/behavior/outcomes, every case states initial/action/final state, edge cases cover partial positions/concurrent commands/schedule conflicts, and assumptions are explicit.
+- **Decision**: Add common deterministic assumptions plus unit, integration, system-wide, and end-to-end tables with named IDs and explicit preconditions, initial state, action, expected behavior, final state, forbidden side effects, and hardware safety boundaries. Preserve the earlier detailed M/S/C/A/SIM/CC/UI/R/H matrices as additional coverage requirements. Do not generate or execute any test artifact in this iteration.
+- **Status**: Specification-only test expansion completed. No test module, fixture, mock, trace, browser automation, hardware profile, or program code was implemented or executed.
+
 ## Program
 
 ### Program Description
@@ -204,7 +261,7 @@ Quality attributes are safety (reject malformed or unsupported commands before s
 
 #### SDN
 
-The SDN subsystem shall transmit commands, read motor feedback, and verify requested movements. Serial write success means only that a command was sent. A movement operation completes when fresh reported position/status confirms its target. Once completed, the operation ends; subsequent physical-keypad movement is observed and reported without moving the curtain back automatically.
+The SDN subsystem shall transmit commands, read motor feedback, and verify requested movements. Serial write success means only that a command was sent. A movement operation completes when fresh reported position/status confirms its operation target. `CurtainController` then ends that operation and continues reporting physical changes. `CurtainControl` separately decides whether a later keypad/physical change becomes the new desired target or requires a bounded corrective operation under the active override/lock policy.
 
 ##### SDN protocol
 
@@ -335,15 +392,17 @@ Use a small set of support classes instead. Keep state, monitoring, operation tr
 | `SerialInterface` in `serial_interface.py` | Open/close the port, read byte chunks, serialize complete writes, and report I/O failures. |
 | `SdnSim` in `sdn_sim.py` | Required stateful SDN device/bus simulator that accepts raw request frames and emits hardware-like raw response chunks with configurable real-device timing. Record simulated traces and compare them with compatible real traces. |
 | `SdnApi` in `sdn_api.py` | Select exactly one real `SerialInterface` or simulated `SdnSim` backend from its initialization configuration; encode commands, frame/decode feedback, match query replies, record raw traffic, and own one receive loop and bounded buffer. |
-| `CurtainController` in `controller.py` | Resolve targets, validate intent, own in-memory motor states and operations, poll feedback, verify completion, optionally retry once, and publish snapshots. |
-| FastAPI routes in `main.py` | Accept control requests, return state/operations, and provide live WebSocket updates. |
-| Scheduler and optional Alexa adapter | Translate their input to the same controller request used by REST. |
+| `CurtainControl` in `curtain_control.py` | Own desired/protection state, normalize policy across sources, expand groups, deduplicate intent, compute desired/reported delta, and request bounded reconciliation. It does not own scheduler or controller lifecycle. |
+| `CurtainController` in `controller.py` | Validate resolved movement requests/addresses, own in-memory physical motor states and operations, poll feedback, verify completion, optionally retry once, and publish observations. |
+| FastAPI routes in `main.py` | Accept manual control requests through `CurtainControl`, return state/operations, and provide live WebSocket updates. |
+| Static web adapter and scheduler | Translate authenticated browser requests or scheduled occurrences into `ControlIntent` and deliver them to `CurtainControl`. Alexa is a future boundary, not a module in this version. |
 
 `config.py` shall handle JSON settings and safe YAML credential loading. Keep Pydantic models beside the class using them; introduce `models.py` only if shared definitions become cumbersome. Separate `StateStore`, `StateMonitor`, and `Reconciler` classes and `state.py`/`monitor.py` modules are not required.
 
 ```mermaid
 flowchart TD
-    Inputs[REST / Scheduler / Alexa] -->|ControlRequest| Controller[CurtainController]
+    Inputs[Static web / REST / Scheduler] -->|normalized ControlIntent| Control[CurtainControl]
+    Control -->|accepted MovementRequest| Controller[CurtainController]
     Controller -->|send / get_position / get_status| API[SdnApi]
     API -->|mode=real| Serial[SerialInterface]
     API -->|mode=simulated| Sim[SdnSim]
@@ -358,7 +417,7 @@ flowchart TD
     Events --> Clients[Web / other clients]
 ```
 
-Only the controller calls the SDN command/query interface. `SdnApi` exposes identical behavior for real and simulated modes; neither the controller nor FastAPI may branch on the selected backend. The controller's background task handles active/idle polling, unsolicited feedback, and operation deadlines. The SDN receive task owns backend reading and delivers feedback to pending queries and the controller. Blocking serial I/O and simulator delays shall not block FastAPI's event loop. These are tasks inside one process, not separate services.
+Only `CurtainControl` admits application actions, and only `CurtainController` calls the SDN command/query interface. `SdnApi` exposes identical behavior for real and simulated modes; `CurtainControl`, the controller, and FastAPI may not branch on the selected backend. The controller's background task handles active/idle polling, unsolicited feedback, and operation deadlines. The SDN receive task owns backend reading and delivers feedback to pending queries and the controller. Blocking serial I/O and simulator delays shall not block FastAPI's event loop. These are tasks inside one process, not separate services.
 
 ##### Requirements and Current Assessment
 
@@ -383,11 +442,11 @@ The repository currently contains the Node migration reference; the Python class
 
 ##### Pydantic Data Models
 
-Use `extra="forbid"`, validated defaults, and validated replacement objects for state changes. Keep the application models in `controller.py` and the protocol frame in `sdn_api.py`.
+Use `extra="forbid"`, validated defaults, and validated replacement objects for state changes. Keep policy/intent models in `curtain_control.py`, execution/state models in `controller.py`, and protocol frames/feedback in `sdn_api.py`; move only genuinely shared primitives to `models.py` if circular imports would otherwise result.
 
 | Model | Definition |
 |---|---|
-| `ControlRequest` | Target type (`motor`/`group`), configured name or address, action (`open`, `close`, `stop`, `set_percent`), optional percentage, and requesting source. Target names are resolved by the controller. |
+| `MovementRequest` | Controller-ready position or stop request containing resolved motor/member addresses, optional proven group address, strict percentage, target revision/correlation, and capability snapshot. It contains no web/Alexa/schedule policy. |
 | `MotorState` | Motor ID, reported percentage and motion, independent position/status observation times and validity, communication health, connection generation, optional motor fault, optional estimated percentage, active target percentage, active operation ID, and controller session ID. |
 | `Operation` | UUID, action (`position` or `stop`), target motor/group, per-member revision and outcome where applicable, optional requested percentage, status, creation/transmission/deadline/completion times, retry count, verification error, and controller session ID. |
 | `SdnFrame` | Raw bytes, command/device identifiers, source/destination addresses, payload, checksum, and receipt time. Decode and check raw bytes before exposing a validated frame. |
@@ -402,7 +461,7 @@ Use timezone-aware timestamps and an injected monotonic clock for elapsed time. 
 
 The application convention is `0% = fully open`, `100% = fully closed`. Apply a verified per-motor `invert_position` setting to commands and feedback. Keep estimates separate from reports: estimates may animate a client, but cannot verify completion or trigger retry.
 
-Validate `ControlRequest` at API/scheduler/Alexa entry; validate replacements of `MotorState` and `Operation`. Do not bypass validation using `model_construct()` or unchecked `model_copy(update=...)`. Generate `model_json_schema()` and validate representative JSON examples; also test cross-field rules through Pydantic because JSON Schema alone does not exercise runtime logic.
+Validate source-specific input at its adapter, then validate the normalized `ControlIntent` again at `CurtainControl.submit()` and `MovementRequest` at the controller boundary. Validate replacements of `MotorState` and `Operation`. Do not bypass validation using `model_construct()` or unchecked `model_copy(update=...)`. Generate `model_json_schema()` and validate representative JSON examples; also test cross-field rules through Pydantic because JSON Schema alone does not exercise runtime logic.
 
 ##### System State Review and Required Corrections
 
@@ -427,7 +486,7 @@ For a newly transmitted movement, position and stopped/idle status used for comp
 
 Keep lifecycle `pending/active/completed/failed/cancelled` separate from motor motion. A stop operation has no percentage target and verifies stopped/idle feedback after its own transmission. If the stop write succeeds but verification times out, return failed verification with transmission recorded; do not report the motor stopped. A control write failure cancels that operation's goal and produces a terminal error. A successful write followed by query failures remains unverified and ends failed at its verification deadline, with no automatic resend.
 
-Group child outcomes are `pending`, `active`, `completed`, `failed`, or `cancelled`; aggregate completed requires every member completed. Unverified/offline members produce explicit per-member failures. Optional retry applies to individual, freshly observed stopped mismatches only, never to already successful members or the whole group. Physical keypad movement after completion is observed without correction. During an active operation, contradictory movement may be interference or normal behavior; default to failing the operation at its deadline without retry unless fresh stopped feedback satisfies the explicitly enabled retry policy.
+Group child outcomes are `pending`, `active`, `completed`, `failed`, or `cancelled`; aggregate completed requires every member completed. Unverified/offline members produce explicit per-member failures. Optional retry applies to individual, freshly observed stopped mismatches only, never to already successful members or the whole group. `CurtainController` reports physical keypad movement without independently correcting it; `CurtainControl` owns any target adoption or later reconciliation. During an active operation, contradictory movement may be interference or normal behavior; default to failing the operation at its deadline without retry unless fresh stopped feedback satisfies the explicitly enabled retry policy.
 
 ##### SDN Interface and Protocol
 
@@ -436,7 +495,7 @@ Use one command method and two query methods with distinct responsibilities:
 | Interface | Behavior |
 |---|---|
 | `SdnApi.__init__(backend_config, serial_interface=None, simulator=None, recorder=None, clock=None)` | Validate `backend_config.mode` as `real` or `simulated` and select exactly one backend. Real mode requires `SerialInterface` and forbids `SdnSim`; simulated mode requires `SdnSim` and forbids opening an OS serial port. Injected instances support testing, but configuration and instance type must agree or initialization fails. |
-| `SdnApi.send(request: ControlRequest) -> None` | Receive a controller-resolved address target, encode and write a supported movement command. Return after transmission; raise typed validation/transport errors. |
+| `SdnApi.send(request: MovementRequest) -> None` | Receive a controller-resolved address/action, encode and write a supported movement command. Return after transmission; raise typed validation/transport errors. Application source, protection, and schedule fields must not cross this boundary. |
 | `SdnApi.get_position(address: int, timeout: float) -> MotorFeedback` | Query a motor and return decoded raw percentage with receipt metadata after a matching validated reply. Raise typed timeout/transport/protocol errors. The controller applies configured percentage inversion. |
 | `SdnApi.get_status(address: int, timeout: float) -> MotorFeedback` | Query a motor and return supported idle/opening/closing/stopped/fault status with receipt metadata. Unsupported status feedback is explicitly unavailable. |
 | `SdnApi.encode_request(request) -> bytes` | Validate and translate a supported application request into source address, destination address, command ID, and command-specific DATA, then call `SdnMsg`. |
@@ -523,7 +582,7 @@ The controller owns dictionaries of `MotorState` and `Operation`, bounded operat
 
 | Controller interface | Responsibility |
 |---|---|
-| `submit(request: ControlRequest) -> Operation` | Validate/resolve the target, dispatch supported intent, and return its operation record. Position requests are verified asynchronously; stop follows the cancellation path. |
+| `submit(request: MovementRequest) -> Operation` | Validate resolved addresses/capabilities/revision, dispatch supported position or stop work, and return its operation record. Position requests are verified asynchronously; stop follows the cancellation path. |
 | `stop(motor_id) -> Operation` | Cancel the target operation, discard queued retry, transmit stop, and track the stop outcome from supported status feedback. |
 | `get_state(motor_id=None)` | Return one or all validated motor snapshots without exposing mutable internal dictionaries. |
 | `get_operation(operation_id) -> Operation` | Return the current or terminal operation record. |
@@ -537,7 +596,7 @@ The controller serializes state transitions using one lock and performs serial q
 3. Poll active motors and process unsolicited feedback, updating observed state and live snapshots.
 4. Complete only after fresh reported percentage is within configured tolerance and fresh status confirms motion has stopped. An already-satisfied goal may complete without writing if fresh reports prove it.
 5. If a travel deadline expires with fresh feedback proving a stopped position mismatch, optionally resend once after a cooldown. Retry is disabled by default. Never retry on faults, missing/stale feedback, disconnect, or estimates.
-6. After completion/failure/cancellation, clear the active target and continue observing. Physical-keypad changes do not trigger restoration of earlier targets.
+6. After completion/failure/cancellation, clear the controller's active operation target and continue observing. The durable desired target remains in `CurtainControl`, which may adopt a permitted local-button result or request bounded restoration under its reconciliation policy.
 
 ```mermaid
 stateDiagram-v2
@@ -561,31 +620,35 @@ A group command creates per-member targets and verifies each member by individua
 
 Configure active/idle polling (starting values 500 ms / 60 seconds), query/freshness timeouts, consecutive-failure offline threshold, verification-pair skew, per-motor travel deadline, tolerance (default 3 percentage points), retry enablement/cooldown, and bounded history/event queues. Validate these in `config.py`: intervals/thresholds must be positive, tolerance is in `0..100`, and skew is no greater than the field freshness limits. Validate freshness settings against the effective polling cadence so idle motors are not incorrectly classified stale solely because their next poll has not arrived. Space polls to fit 4800-baud bus capacity and give stop/control precedence over polling. Startup/reconnect refreshes unknown state without replaying historical requests.
 
-If the device cannot report the position/status needed for verification, reject verified-position operations with an explicit capability error. Transmission-only actions can still be exposed distinctly after payload verification; they must not be reported as verified movement completion. Persistent desired-state enforcement and external-change correction policies are deferred.
+If the device cannot report the position/status needed for verification, reject verified-position operations with an explicit capability error. Transmission-only actions can still be exposed distinctly after payload verification; they must not be reported as verified movement completion. Persistent desired-state enforcement and external-change policy belong exclusively to `CurtainControl`, never this controller.
 
 ##### Command, Feedback, and Live-State Communication
 
 ```mermaid
 sequenceDiagram
-    participant Client as REST / Scheduler / Alexa
-    participant Main as FastAPI adapter
+    participant Client as Static web / REST / Scheduler
+    participant Adapter as Source adapter
+    participant Control as CurtainControl
     participant Controller as CurtainController
     participant SDN as SdnApi
     participant Backend as SerialInterface or SdnSim
     participant Motor as Real or simulated SDN device
     participant Live as WebSocket client
 
-    Client->>Main: request target position
-    Main->>Main: validate ControlRequest
-    Main->>Controller: submit(request)
-    Controller->>Controller: create revisioned Operation and target
-    Controller->>SDN: send(resolved request)
+    Client->>Adapter: source-specific request
+    Adapter->>Adapter: validate and normalize
+    Adapter->>Control: submit(ControlIntent)
+    Control->>Control: policy, group expansion, persist target revision
+    Control->>Controller: submit(MovementRequest)
+    Controller->>Controller: create revisioned Operation
+    Controller->>SDN: send(MovementRequest)
     SDN->>Backend: write(encoded command frame)
     Backend->>Motor: raw SDN command bytes
     SDN-->>Controller: transmission complete
-    Controller-->>Main: active Operation
-    Main-->>Client: HTTP 202 and operation_id
-    Controller-->>Live: operation active / expected motion
+    Controller-->>Control: active Operation
+    Control-->>Adapter: ControlDecision and operation_id
+    Adapter-->>Client: accepted response
+    Control-->>Live: target and operation active / expected motion
 
     loop While operation active until deadline
         Controller->>SDN: get_position(address, timeout)
@@ -604,15 +667,18 @@ sequenceDiagram
         SDN-->>Controller: MotorFeedback(status)
 
         Controller->>Controller: validate generation, freshness, skew, revision
-        Controller-->>Live: sequenced MotorState snapshot
+        Controller-->>Control: sequenced MotorState / Operation
+        Control-->>Live: sequenced ControlSnapshot
     end
 
     alt Fresh position at target and fresh stopped status
         Controller->>Controller: complete Operation
-        Controller-->>Live: operation completed
+        Controller-->>Control: operation completed
+        Control-->>Live: satisfied ControlSnapshot
     else Fault, disconnect, or verification deadline
         Controller->>Controller: fail or perform one allowed member retry
-        Controller-->>Live: operation failed or retry event
+        Controller-->>Control: operation failed or retry event
+        Control-->>Live: unmet/failed ControlSnapshot
     end
 ```
 
@@ -624,35 +690,36 @@ For unsolicited motor feedback, the sequence begins at the device-response path:
 
 | Method / path | Behavior |
 |---|---|
-| `GET /state` | Current motor snapshots and event sequence. |
+| `GET /state` | Cached `ControlSnapshot` containing desired, reported, delta, convergence, protection, health, and event sequence; no serial I/O. |
 | `GET /motors/{motor_id}/state` | Reported/estimated position, motion, freshness, active target, and operation. |
-| `PUT /motors/{motor_id}/desired-state` | Request movement to a percentage; return 202 and operation ID pending verification. “Desired state” is an operation target, not perpetual enforcement. |
-| `PUT /groups/{group_id}/desired-state` | Request member targets and aggregate verification. |
-| `POST /motors/{motor_id}/stop` | Cancel active goal and send stop. |
+| `PUT /motors/{motor_id}/desired-state` | Change the persistent desired percentage through `CurtainControl`; return 202 and an operation/decision ID pending reconciliation and verification. |
+| `PUT /groups/{group_id}/desired-state` | Set versioned group intent, expand it to member targets, and return member/aggregate reconciliation status. |
+| `POST /motors/{motor_id}/stop` | Cancel active operation, send stop, and pause reconciliation for the current target revision. |
+| `POST /motors/{motor_id}/resume` | Resume eligible reconciliation for a paused target revision after authorization. |
 | `GET /operations/{operation_id}` | Operation outcome, retry count, and safe error. |
-| `WS /events` | Initial snapshot followed by sequenced motor snapshots and operation updates. |
+| `WS /events` | Initial control snapshot followed by sequenced desired/reported/convergence/operation updates. |
 
-Use a small event envelope containing session ID, sequence, event type, timestamp, and `MotorState` or `Operation`; a separate event-service class is unnecessary. A client can show `closing - 48%` using fresh reported motion and percentage, and visibly mark stale/estimated values. Capture the initial snapshot and subscribe atomically, discard duplicate/old sequences within the current session, and refresh on gaps/reconnect/session change. Bound subscriber queues and disconnect slow clients for resynchronization; client delivery must not block serial work. Use the same authentication policy for REST and WebSocket.
+Use a small event envelope containing session ID, sequence, event type, timestamp, and the affected `ControlSnapshot` view/operation; a separate event-service class is unnecessary. A client can show `closing - 48%`, desired position, protection, and convergence using fresh reported state while visibly marking stale/estimated values. Capture the initial snapshot and subscribe atomically, discard duplicate/old sequences within the current session, and refresh on gaps/reconnect/session change. Bound subscriber queues and disconnect slow clients for resynchronization; client delivery must not block serial work. Use the same authentication policy for REST and WebSocket.
 
 ```mermaid
 sequenceDiagram
     participant Client as Web client
     participant API as FastAPI
-    participant Controller as CurtainController
+    participant Control as CurtainControl
 
     Client->>API: connect WS /events
-    API->>Controller: subscribe atomically
-    Controller-->>API: session_id, sequence N, state snapshot, subscription
+    API->>Control: snapshot and subscribe atomically
+    Control-->>API: session_id, sequence N, ControlSnapshot, subscription
     API-->>Client: initial snapshot at N
-    Controller-->>API: event N+1
+    Control-->>API: event N+1
     API-->>Client: state or operation update N+1
-    Controller-->>API: event N+2
+    Control-->>API: event N+2
     API-->>Client: state or operation update N+2
 
     alt Client detects sequence gap or session change
         Client->>API: GET /state
-        API->>Controller: get_state()
-        Controller-->>API: current snapshot and sequence
+        API->>Control: snapshot()
+        Control-->>API: current snapshot and sequence
         API-->>Client: replacement snapshot
     else Subscriber queue overflows
         API-->>Client: close with resynchronization reason
@@ -662,12 +729,12 @@ sequenceDiagram
 
 ##### Testing and Code Generation
 
-Organize the SDN tests in five files: `test_models.py`, `test_sdn_api.py`, `test_sdn_sim.py`, `test_controller.py`, and `test_api.py`. Multiple named tests belong in each file; test-file count is not a requirement. The following table defines the named behavior cases and the SDN interface exercised.
+Organize the future SDN, application-control, and integrated web tests in seven Python files: `test_models.py`, `test_sdn_api.py`, `test_sdn_sim.py`, `test_controller.py`, `test_curtain_control.py`, `test_api.py`, and `test_web_ui.py`. Multiple named tests belong in each file; test-file count is not an acceptance criterion. The following table defines the named SDN behavior cases and interfaces exercised; CC01–CC18 and UI01–UI08 in the `CurtainControl` subsection define the application/client cases.
 
 | Name | Test description | SDN interface tested |
 |---|---|---|
-| M01 — Valid control schema | Accept open/close/stop and percentage requests, resolve valid decimal/hex addresses, and round-trip JSON. | `ControlRequest`; controller request validation |
-| M02 — Invalid control schema | Reject booleans/fractions as addresses or percentages, out-of-range values, unknown actions/fields, missing percentage, and unrelated parameters; assert zero writes. | `ControlRequest`; `CurtainController.submit()` |
+| M01 — Valid control schema | Normalize open/close/stop/resume/percentage inputs, resolve valid decimal/hex references, and round-trip intent/movement JSON. | adapter input; `ControlIntent`; `MovementRequest` |
+| M02 — Invalid control schema | Reject booleans/fractions as addresses or percentages, out-of-range values, unknown actions/fields, missing/inappropriate percentage, and unrelated parameters; assert zero persistence and writes. | `ControlIntent`; `CurtainControl.submit()`; `MovementRequest` |
 | M03 — State and operation invariants | Reject naive timestamps and inconsistent terminal operations; keep estimates and reported values distinct; validate replacements. | `MotorState`, `Operation` |
 | M04 — Frame schema | Round-trip raw/payload hex; reject invalid raw length/checksum and field disagreement; retain unknown commands without interpreting state. | `SdnFrame`; `SdnApi.decode_frame()` |
 | M05 — Configuration and JSON Schema | Validate monitoring limits, group references, capability settings, and schema examples using both generated JSON Schema and Pydantic. | `config.py` models; `model_json_schema()` |
@@ -690,7 +757,7 @@ Organize the SDN tests in five files: `test_models.py`, `test_sdn_api.py`, `test
 | C05 — Missing verification | A write alone, position alone without required stopped status, or old feedback cannot complete an operation; deadline produces explicit failure. | Controller verification; `get_position()`, `get_status()` |
 | C06 — Stop during movement/retry | Cancel target and queued retry, send stop first, and ignore later observations for completion of cancelled operation. | `CurtainController.stop()`; `SdnApi.send()` |
 | C07 — Superseding request | New target revision cancels older operation; repeated active target returns same ID; stale queued command is discarded. | `CurtainController.submit()`; command dispatch |
-| C08 — Fault and external movement | Fault suppresses retry; after operation ends, physical-keypad movement updates reports without corrective output. | Controller monitor; `received_frames()`; `send()` write count |
+| C08 — Fault and external movement | Fault suppresses controller retry; after operation ends, physical-keypad movement updates reports without the controller independently issuing correction. `CurtainControl` policy is tested separately by CC12–CC14. | Controller monitor; `received_frames()`; `send()` write count |
 | C09 — Group verification | All configured member reports must verify; expose partial/offline member failure and handle supported group packet. | Controller group operation; `send()`, individual queries |
 | C10 — Overlapping targets | Individual request supersedes its group goal; aggregate cancels and unaffected member operations continue. | Controller revision/group arbitration |
 | C11 — Restart and reconnect | Refresh observations after reconnect; do not replay ended requests; cancel background work on shutdown and enforce history bounds. | Controller lifecycle; `SdnApi` queries/lifecycle |
@@ -699,7 +766,7 @@ Organize the SDN tests in five files: `test_models.py`, `test_sdn_api.py`, `test
 | C14 — Completion coherence | Reject pre-transmission, mismatched-generation, moving, and excessively skewed position/status pairs; verify a current coherent pair. | Controller completion check; query feedback |
 | C15 — Member-only retry | One group member succeeds and another mismatches; retry only the eligible failed member once and preserve successful member result. | Controller group verification; `SdnApi.send()` |
 | C16 — Stop and error semantics | Stop writes but status is silent, or transmission itself fails; report the appropriate terminal verification/transport error and never claim stopped motion. | `CurtainController.stop()`; `get_status()`; transport errors |
-| A01 — REST control acceptance | Valid request yields 202 and operation ID; repeated target is idempotent; invalid requests yield 4xx and zero writes. | FastAPI control routes -> `CurtainController.submit()` |
+| A01 — REST control acceptance | Valid request yields 202 and operation ID; repeated target is idempotent; invalid requests yield 4xx and zero writes. | FastAPI adapter -> `CurtainControl.submit()` -> `CurtainController.submit()` |
 | A02 — Simulated live close | Run a stateful `SdnSim` close; snapshots/events show raw-response-derived closing percentages and timing; completion follows verified stopped target. | State routes, `WS /events`, controller monitor, `SdnApi` over `SdnSim` |
 | A03 — Snapshot and reconnect | Snapshot/event handoff loses no state; reconnect/gap recovery returns current state; discard older events. | `GET /state`; `WS /events` |
 | A04 — Slow subscriber | Fill bounded event queue; disconnect/resync slow client while polling/control continue. | Controller subscription; `WS /events` |
@@ -760,13 +827,13 @@ flowchart LR
     API --> Results
 ```
 
-All three paths use the production `SdnApi`, `CurtainController`, Pydantic schemas, and FastAPI routes. Mock assertions establish isolated deterministic logic and error handling. Simulator assertions establish stateful byte/timing behavior and reproducibility without claiming physical accuracy. Hardware assertions establish actual framing, timing, electrical communication, motor response, and movement behavior. Only valid real-versus-simulated trace comparisons quantify simulator fidelity.
+All three paths use the production `SdnApi`, `CurtainController`, `CurtainControl`, Pydantic schemas, and FastAPI routes. Mock assertions establish isolated deterministic logic and error handling. Simulator assertions establish stateful byte/timing behavior and reproducibility without claiming physical accuracy. Hardware assertions establish actual framing, timing, electrical communication, motor response, and movement behavior. Only valid real-versus-simulated trace comparisons quantify simulator fidelity.
 
 Mocked communication uses independent documented/captured response frames; echoing an outgoing command is not motor feedback and cannot verify an operation. `SdnSim` generates stateful responses and may inject only scenario-declared faults. Arbitrary corruption/race injection remains mock-only except H05 on an isolated permitted rig. Real communication tests use actual motors and the production serial adapter; tests shall not physically stall a motor or send malformed motor-programming packets to installed hardware.
 
 Register `mock`, `simulated`, `hardware`, `fidelity`, and `motion` pytest markers. Add `--backend=mock|simulated|hardware`, `--sim-config=PATH`, `--rig-config=PATH`, `--real-trace=PATH`, and `--allow-motion` options. Backend-aware collection explicitly selects applicable tests: default mock collection cannot open a real port. Simulated mode must fail if its profile/scenario is invalid and never probe a port. Hardware mode must fail preflight when the requested adapter/motors/profile are missing or unusable; it must never silently fall back or report a skip as successful acceptance. Real movement commands are disabled unless `--allow-motion` and a valid allowlisted profile are both supplied.
 
-The rig profile is a separate validated JSON document containing adapter port/serial parameters, allowed motor/group addresses and supported feedback capabilities, safe test percentage range, maximum travel/query times, and intended movement test cases. Reject groups containing a motor outside the allowlist, broadcast targets, duplicate identities, and commands outside test limits before writing. Disable scheduler/Alexa and competing controller processes for the test session; exclusively own the adapter. Read-only hardware tests may transmit position/status queries but cannot call movement/stop commands.
+The rig profile is a separate validated JSON document containing adapter port/serial parameters, allowed motor/group addresses and supported feedback capabilities, safe test percentage range, maximum travel/query times, and intended movement test cases. Reject groups containing a motor outside the allowlist, broadcast targets, duplicate identities, and commands outside test limits before writing. Disable the scheduler, web command admission, and competing controller processes for the test session; exclusively own the adapter. Read-only hardware tests may transmit position/status queries but cannot call movement/stop commands.
 
 Mark H01, H03, H04, H06 and shared physical movement scenarios as `hardware` and `motion`; H02 is read-only. H05 requires an isolated rig profile permitting communication interruption and shall not interrupt an unrelated running controller. Test fixtures check these conditions before execution, and show unsupported/not-run classification without issuing movement.
 
@@ -789,6 +856,335 @@ python -m pytest tests -q --strict-markers --backend=simulated --sim-config=test
 
 The generation report shall map SDN-001..014 to implemented methods and named test results, record failures/remaining uncertainties, and distinguish mock correctness, simulator correctness, measured simulator fidelity, and real-motor/serial verification. Generation acceptance requires applicable mock and simulator tests to pass. A simulator fidelity claim requires a valid comparison with an approved real trace and reports its score; passing simulator tests alone does not establish fidelity. Hardware acceptance requires the requested real-hardware runs to pass; absence of a rig leaves physical and fidelity claims not-run/unverified. Extended commands and persistent state enforcement remain deferred until separately specified and tested.
 
+#### CurtainControl
+
+`CurtainControl` is the application-level control facade and desired-state reconciler in `curtain_control.py`. It preserves the Node server's web and scheduled control, adds Somfy local-button intent, and supports autonomous open/close/percentage decisions from time, celestial, and environmental rules. It provides one policy boundary so every source uses identical target validation, priority, override/lock handling, reconciliation, operation tracking, and live-state behavior.
+
+This class is distinct from `CurtainController`. `CurtainControl` decides *when and why* a validated action is submitted; `CurtainController` decides *how* that action is sent, monitored, and verified through SDN. `CurtainControl` consumes validated `MotorState`/`Operation` events but shall not encode SDN frames, read/write serial bytes, decode raw motor feedback, or duplicate the controller's operation state machine.
+
+##### Legacy capability and requested-feature review
+
+The migration shall preserve useful behavior, not defects. A command builder in `sdn-protocol.js` is not considered a working Node application capability unless `CurtainControl.js` or `server.js` exposes and invokes it.
+
+| Node behavior | Evidence and quality | Specification decision |
+|---|---|---|
+| Initialize and write to a 4800/8/O/1 serial port | `CurtainControl.Initialize()` opens the port; `Start()` writes complete command buffers. | Required and strengthened with lifecycle, serialization, typed errors, mock/simulated/real backends, and verified feedback. |
+| Motor/group open and close | `CurtainControl.Start()` maps `UpLimit`/`DownLimit`; the main web page creates group buttons. | Required through normalized position targets: open=`0`, close=`100`. |
+| Motor percentage | `Start()` maps motor `Percent`; the low-level helper also has a group form that `Start()` does not expose. | Required for both motor and group; groups expand to supported member targets and may use a proven group command where safe. |
+| Timed jog | `Start()` maps motor `Jog`; the service page submits direction/time. | Missing from the active specification and now recorded as a deferred compatibility extension. It requires limits, maximum duration, stop semantics, authorization, and hardware tests before exposure. |
+| Legacy motor lock/unlock | `Start()` sends JavaScript `0x4B/0x5B`-family behavior through `SetLock()`. Supplied SDN revisions conflict and the Node receiver cannot verify it. | Do not claim parity by sending an unsafe command. Application policy protection is required; hardware lock/unlock remains capability-gated and deferred until profile/hardware evidence resolves the wire protocol. |
+| Stop, count position, and position/status queries | Helpers exist in `sdn-protocol.js`, but exported `CurtainControl.Stop()` is empty, application routes do not expose count/query behavior, and the receive parser is broken. | Stop and verified position/status are required new functionality. Raw count positioning remains deferred; down-limit counts are calibration/configuration, not a public target unit. |
+| Device/group configuration UI and CRUD | Static configuration page plus MySQL GET-based add/update/delete routes. | Preserve validated inventory/configuration read/update behavior through REST and atomic JSON/YAML files; intentionally omit MySQL, unsafe GET mutations, and bundled legacy UI. |
+| Scheduling | `NextEvent()` supports one-time date, timestamp, misspelled `chron`, sunrise/sunset, moonrise/moonset, offsets, and callback conditions. Offset values are added to JavaScript millisecond timestamps while examples appear written as seconds; `ProcessEvents()` is hard-coded test behavior including one-minute alternating movement. | Support `cron` (accept `chron` only in an explicit migration importer), one-time timestamps, explicit `offset_seconds`, solar/twilight/lunar/environment events, typed conditions, and configuration-driven actions. Never carry forward ambiguous units or test alternation. |
+| Static web and Socket.IO control | Express serves pages and Socket.IO accepts `Action`. The handler calls `Start()` with the wrong signature in the checked-in code. | Replace it with the new `static/` HTML/CSS/JavaScript client using REST plus the native WebSocket event stream. Socket.IO, jQuery, and the bundled legacy pages remain excluded. |
+| Virtual serial port in development | Node selects `virtual-serialport` from `NODE_ENV`. | Replaced by deterministic byte mocks and the stateful `SdnSim`; no second serial-simulator path. |
+| Physical feedback and completion | Intended receive code references variables/functions incorrectly and resolves movement on write completion. | Not a usable legacy capability. The Python design must parse/validate feedback and distinguish accepted, moving, satisfied, stopped, and failed states. |
+
+The requested capabilities were previously underspecified in several important areas. This revision resolves them as follows:
+
+| Requested behavior | Earlier gap | Controlling definition |
+|---|---|---|
+| Targets by curtain and group | Active operation targets were transient and group truth was ambiguous. | Per-curtain `desired_position` is authoritative; `GroupTarget` is versioned intent plus derived member status. |
+| Web, Somfy button, and autonomous target changes | Each path had separate methods and local-button attribution was not rigorous. | Every producer emits the same `ControlIntent`; only validated `local UI` cause can create `somfy_button` intent. |
+| Durable user override and lock | Duration windows and hardware lock terminology were conflated. | `Protection` has explicit durable override/policy-lock modes, scope, target, owner, reason, expiry, and revision. Hardware SDN locking is separate. |
+| Change physical state to match target | No single convergence contract or suppression rule after failure. | Desired/reported delta drives bounded reconciliation; exhaustion produces `failed_unmet` and no command loop. |
+| Monitor and update actual state | Wording could imply discarding physical state after retry failure. | Every newer valid observation updates reported state regardless of target/retry outcome. |
+| Cron and event scheduling | Cron dialect, DST, edges, stale data, and repeated-true behavior were incomplete. | Five-field cron plus explicit DST policy; celestial/environment events use occurrence IDs, freshness, edge, debounce, hysteresis, and cooldown. |
+| Solar/twilight/moon/weather/temperature/other inputs | “Dawn/dusk,” “moon visible,” and “other” were not testable definitions. | Named civil/nautical/astronomical events, deterministic moon predicate, typed environmental registry, units, freshness, and fail-closed missing data. |
+| Stop under maintained desired state | It was unclear whether reconciliation would immediately restart motion. | Stop sets the affected target revision to `paused`; correction cannot resume until an authorized `resume` or newer target intent. |
+
+##### Design references and adopted patterns
+
+These are design references, not runtime dependencies:
+
+| Reference | Useful pattern | Applied improvement |
+|---|---|---|
+| [Home Assistant Cover entity](https://developers.home-assistant.io/docs/core/entity/cover/) | Small standard action set (`open`, `close`, `set_position`, `stop`), current position/motion, and advertised supported features; state properties return cached information rather than performing I/O. | Use a capability set and a read-only in-memory snapshot. Normalize open/close to position while retaining stop. Home Assistant's position convention is the reverse of this program, so any adapter must invert explicitly at its boundary. |
+| [Matter Window Covering](https://docs.espressif.com/projects/arduino-esp32/en/latest/matter/ep_window_covering.html) | Separate target and current lift position, operational status, feature-dependent commands, calibration, and `0=open`/`100=closed`. | Use the same internal percentage convention, keep calibration/counts below the public interface, and never report a target as current position. |
+| [AWS IoT Device Shadow documents](https://docs.aws.amazon.com/iot/latest/developerguide/device-shadow-document.html) | Desired, reported, and computed delta state with timestamps, versions, and correlation tokens; stale versions can be rejected. | Make desired/reported/delta explicit, revision every accepted intent, attach timestamps/idempotency keys, and persist only the small local state document—without adding AWS. |
+| [Kubernetes controller pattern](https://kubernetes.io/docs/concepts/architecture/controller/) | A control loop observes current state and requests side effects that move it toward desired state while keeping ownership boundaries clear. | `CurtainControl` computes policy/delta; `CurtainController` performs bounded operations. Reconciliation is idempotent and rate-limited rather than a command-producing timer loop. |
+| [Alexa state and change reporting](https://www.developer.amazon.com/docs/alexaplus/smarthome/state-reporting-for-smart-home-addons.html) and [window-covering capability mapping](https://developer.amazon.com/docs/alexaplus/smarthome/supported-matter-device-categories.html) | Window coverings use a range-like position; current state, cause, sample time, and endpoint health are retrievable and proactively reported. | Map Alexa range directives to the same intent, report controller-observed state rather than optimistic target state, include endpoint health/cause/time, and publish changes from the common event stream. |
+
+The project shall adopt these small data/control patterns but shall not embed Home Assistant, Matter, AWS, Kubernetes, or an Alexa cloud client in `CurtainControl`.
+
+##### Responsibilities and boundaries
+
+```mermaid
+flowchart LR
+    Web[Bundled static web client] -->|REST target / configuration / schedule| API[FastAPI routes]
+    Button[Somfy local button] -->|decoded local-UI MotorState| Controller
+    Clock[Clock and timezone] --> Scheduler[CurtainScheduler]
+    Solar[DataSources<br/>solar calendar] --> Scheduler
+    Rules[Validated schedule rules] --> Scheduler
+    Scheduler -->|normalized ControlIntent| Control[CurtainControl]
+    API -->|normalized ControlIntent| Control
+    FutureAlexa[Future Alexa boundary<br/>not implemented] -.->|future ControlIntent| Control
+    Controller -->|MotorState / Operation events| Control
+    Control -->|validated request and source context| Controller[CurtainController]
+    Controller -->|Operation and MotorState events| API
+    Controller --> Sdn[SdnApi]
+```
+
+`CurtainControl` shall:
+
+- accept all manual and autonomous application actions and attach an immutable source context;
+- maintain durable desired targets for every curtain plus versioned group intent and derived aggregate status;
+- consume controller state events, including verified Somfy local-button movement, without interpreting raw SDN frames;
+- validate that the target and requested action remain present and enabled in the active configuration;
+- arbitrate web, local-button, group, scheduled, override, and lock intent before calling `CurtainController`;
+- compare fresh actual positions with desired targets and request bounded corrective operations when policy permits;
+- accept normalized autonomous intent without depending on scheduler implementation or lifecycle;
+- preserve schedule/environment occurrence identity so one event cannot create duplicate motor commands;
+- atomically persist durable targets, overrides, locks, handled-event keys, and retry-exhaustion state to a configured local control-state file;
+- expose controller state/operation queries to route adapters without copying or mutating those models; and
+- log accepted, skipped, superseded, and failed decisions without including credentials.
+
+FastAPI and `CurtainScheduler` shall call `CurtainControl`, not `CurtainController` directly. A future Alexa adapter must obey the same boundary, but no Alexa adapter is implemented in this version. `CurtainController` remains the only application class allowed to call `SdnApi`.
+
+##### Class interface
+
+The implementation shall provide the following typed asynchronous behavior. Exact Python spelling may follow normal conventions, but the semantics are required.
+
+| Method | Required behavior |
+|---|---|
+| `__init__(controller, inventory, control_config, state_repository, clock, logger)` | Receive validated dependencies by injection. Construction shall not start tasks, access serial hardware, execute schedules, or write state. `CurtainControl` has no dependency on FastAPI, Alexa, `CurtainScheduler`, `DataSources`, or `SdnApi`. |
+| `start()` | Load and validate durable control state, subscribe to an already-started `CurtainController`, obtain its cached/initial physical state, and enqueue eligible reconciliation. Calling twice shall be harmless or raise a documented lifecycle error without duplicate tasks/subscriptions. |
+| `close()` | Reject new intent, unsubscribe, atomically flush pending policy state, and cancel reconciliation tasks. It shall not close the controller and shall be bounded/idempotent. |
+| `submit(intent) -> ControlDecision` | The single manual/autonomous command entry. Validate source/capability/idempotency, apply protection and priority, normalize open/close/position/stop/resume, expand groups, durably revision accepted desired state before movement, and request eligible controller operations. |
+| `set_protection(change) -> ControlDecision` | The single override/lock entry. Atomically create, replace, clear, or expire a scoped `Protection` after authorization; stop remains allowed and hardware SDN locking remains separate. |
+| `observe(event) -> None` | Internal subscriber callback for validated controller `MotorState`/`Operation` events. Update reported/group state, recognize supported local-UI cause, calculate delta, and enqueue reconciliation without blocking the publisher. |
+| `request_reconcile(scope, actor) -> ControlDecision` | Authorized recovery entry for a failed/paused target. Clear only eligible suppression state and enqueue the same internal reconcile path; it does not write SDN directly. |
+| `snapshot(scope=None) -> ControlSnapshot` | Return immutable cached desired/reported/delta, motion, health, protection, and operation views. It performs no serial/network I/O. |
+| `reload(inventory, control_config)` | Validate a complete control/inventory replacement before atomically changing target views; quarantine removed references and re-evaluate capabilities/protection. Scheduler-rule reload is coordinated separately by `main.py`. Failure leaves prior control state active. |
+
+Web, scheduler/environment, and local-button adapters shall construct `ControlIntent` and call only `submit()`. Open and close are aliases normalized to positions `0` and `100`; they are not separate policy paths. Scheduler occurrence computation and `get_next_events()` remain responsibilities of `CurtainScheduler`. Controller operation lookup remains a read-only controller service composed into `ControlSnapshot` by `CurtainControl`.
+
+The supporting Pydantic models shall include:
+
+| Model | Required fields and validation |
+|---|---|
+| `DesiredTarget` | Motor ID/address, strict percentage `0..100`, source, target revision, set/updated timestamps, originating group/rule/request, reconciliation status, retry count, retry-not-before time, and optional terminal unmet reason. |
+| `GroupTarget` | Group ID, requested percentage, source/revision/time, member target revisions, and derived status (`satisfied`, `moving`, `mixed`, `unavailable`, or `failed`). Individual member targets are authoritative for execution; a group target is versioned intent and aggregate reporting, not a second competing motor value. |
+| `Protection` | Discriminated mode `override` or `policy_lock`; motor/group scope, fixed percentage or `hold_current`, creator/reason, creation time, optional expiry, and revision. Overrides block ordinary target intent; locks freeze the protected target. It never implies a hardware command. |
+| `ControlIntent` | Source (`web`, `alexa`, `somfy_button`, `schedule`, `environment`, or `reconcile`), motor/group reference, action (`set_position`, `stop`, or `resume`), optional strict percentage, idempotency/correlation key, timezone-aware timestamp, actor/rule metadata, and desired-state precondition revision. Adapters normalize open/close before construction. |
+| `CurtainCapabilities` | Per motor/profile booleans for open/close, stop, percentage, reliable position/status, local-input cause, jog, and verified hardware lock. Adapters expose only the intersection supported by every addressed group member; unsupported intent is rejected before persistence or SDN writes. |
+| `ScheduleRule` | Unique `id`, `enabled`, trigger discriminator, open/close/percentage action, motor/group target, timezone, signed offset, missed-event policy, cooldown, and optional typed conditions. Cron, solar/twilight, lunar, weather, temperature, and registered environmental triggers are supported as defined below. Unknown fields are rejected. |
+| `ScheduledOccurrence` | Rule ID, stable occurrence ID, scheduled UTC instant, scheduled local instant with IANA timezone, action/target, calculation source, configuration revision, and optional solar base instant/offset. Timestamps must be timezone-aware. |
+| `EnvironmentalCondition` | Registered source/field, typed comparator, value and unit, required freshness, hysteresis, debounce, missing-data behavior, and optional clear threshold. Unsupported sources, fields, comparators, or unit combinations are rejected. |
+| `ControlContext` | Source, request/occurrence ID, actor/rule when applicable, accepted time, and active configuration revision. |
+| `ControlDecision` | Status (`accepted`, `no_change`, `skipped`, or `rejected`), reason code, target revision when changed, context, affected motors, and optional operation IDs. An already-satisfied accepted target may have no operation; skipped/rejected decisions cannot claim one. |
+| `ControlSnapshot` | Immutable cached motor/group views containing desired, reported, computed delta, convergence (`unknown`, `satisfied`, `moving`, `paused`, `unmet`, or `failed_unmet`), freshness/health, effective protection, target revision, and active/last operation. |
+| `ControlStateDocument` | Schema version, configuration fingerprint, monotonic revision counter, motor/group targets, active protections, paused/retry-exhaustion records, bounded handled-event keys, and last atomic-write time. It contains no credentials or raw SDN traffic. |
+
+`ScheduleRule.model_json_schema()` and the complete configuration schema shall be generated and checked into the implementation or emitted deterministically for validation/documentation. Both JSON Schema validation and Pydantic construction must accept every valid example and reject every invalid test fixture.
+
+##### Unified control flow
+
+All command producers are adapters. They translate source-specific messages into `ControlIntent`; none chooses SDN commands, mutates desired/reported state, expands groups, or bypasses policy.
+
+```mermaid
+flowchart LR
+    Web[Bundled static web interface] -->|REST request| WebAdapter[FastAPI adapter]
+    Auto[Scheduler and environment] -->|due rule / predicate edge| AutoAdapter[Automation adapter]
+    FutureAlexa[Future Alexa interface<br/>not implemented] -.->|future directive| WebAdapter
+
+    WebAdapter -->|ControlIntent| Control[CurtainControl]
+    AutoAdapter -->|ControlIntent| Control
+
+    Control --> Policy[validate, authorize,<br/>priority and protection]
+    Policy --> Desired[(durable desired state<br/>and revision)]
+    Desired --> Delta[desired - reported delta]
+    Delta -->|eligible MovementRequest| Controller[CurtainController]
+    Controller -->|send / query| SDN[SdnApi]
+    SDN <-->|raw SDN frames| Device[Somfy network]
+
+    SDN -->|validated MotorFeedback| Controller
+    Controller -->|MotorState / Operation| Control
+    Control --> Reported[(cached reported state,<br/>health and convergence)]
+    Reported -->|snapshot / sequenced WebSocket change| WebAdapter
+```
+
+The command and feedback sequence is:
+
+```mermaid
+sequenceDiagram
+    participant Source as Web / Scheduler
+    participant Control as CurtainControl
+    participant Store as Atomic control state
+    participant Controller as CurtainController
+    participant SDN as SdnApi
+
+    Source->>Control: submit(ControlIntent)
+    Control->>Control: validate, deduplicate, protect, expand group
+    alt rejected or no change
+        Control-->>Source: ControlDecision(skipped/rejected)
+    else accepted target revision
+        Control->>Store: persist desired revision
+        Store-->>Control: committed
+        Control->>Controller: submit(MovementRequest)
+        Controller->>SDN: send command, then bounded queries
+        Control-->>Source: ControlDecision(accepted, operation_id)
+        SDN-->>Controller: validated feedback
+        Controller-->>Control: MotorState / Operation event
+        Control->>Control: update reported, delta, group view
+        Control-->>Source: snapshot/change event
+        opt delta remains eligible
+            Control->>Controller: bounded reconciliation request
+        end
+    end
+```
+
+There is one durable write-before-move rule and one feedback path. `CurtainControl` never waits for full curtain travel while holding its state lock; `CurtainController` never changes desired state; `SdnApi` never knows about users, schedules, groups by name, overrides, or web clients.
+
+##### Target and actual state model
+
+For every curtain, `CurtainControl` maintains a desired percentage independently from the actual percentage reported by `CurtainController`. `0` is fully open and `100` is the configured down limit/fully closed. A configured count-based motor limit may be used by the protocol/controller to convert or verify movement, but the application target remains a normalized percentage unless a later capability explicitly enables count-position requests.
+
+Actual state is observational truth and shall never be overwritten with the target, an estimate, or the last successful command. Every newer valid controller observation updates actual position, motion, freshness, communication health, and local/network cause even when the target is unmet, an operation failed, or retries are exhausted. Failed retries change reconciliation status to `failed_unmet`; they do not suppress or falsify actual state.
+
+A group target expands atomically to one target revision per current member. Later individual intent supersedes the affected member without changing unrelated members. Later group intent supersedes every included member according to the same priority rules. Group actual status is derived from member states and must expose mixed/offline/failed members; it shall not report a fabricated average as group position.
+
+##### Input priority, durable overrides, and locks
+
+The default priority from highest to lowest is: safety `stop`; authenticated lock/override management; authenticated web target; verified Somfy local-button terminal position; scheduled/environmental target; background reconciliation of the current target. A later intent at the same priority supersedes an earlier overlapping intent. Configuration may disable a source but may not raise automation above a safety stop or active durable override/lock.
+
+- A durable override fixes the desired target (or holds the freshly observed current position) across schedule events, environmental changes, configuration reload, service restart, and local-button input. An authorized web request may explicitly replace or clear it; an ordinary web target request cannot silently do so.
+- An application policy lock freezes the protected desired target and rejects target-changing input from every source except an authorized unlock/lock-replacement request. `stop` remains permitted. If a local button physically moves an unlocked-at-hardware motor, actual state remains truthful and bounded reconciliation may restore the locked target after movement settles.
+- With neither override nor lock active, a verified Somfy local-button movement becomes user intent: after fresh stopped feedback, its terminal position becomes the new durable target so the service does not fight the user. Movement lacking a supported `local UI` cause updates actual state but is not automatically attributed to a button.
+- Hardware network/local-UI locking is not implied by a `Protection` in `policy_lock` mode. It remains disabled until the installed ST30 profile, command family, acknowledgments, and safe hardware tests resolve the protocol conflicts documented in the SDN section.
+
+Expired override/lock records are cleared atomically before evaluating a new intent. Group overrides/locks expand to members, and the effective member policy records its originating group and revision. Conflicting overlapping records are rejected unless an authorized replacement explicitly identifies the records it supersedes.
+
+##### Target reconciliation
+
+`CurtainControl` subscribes to non-blocking controller state/operation events and also runs a low-frequency reconciliation scan. A motor is satisfied only when its fresh reported position is within the configured percentage tolerance of its desired target and its fresh status is stopped/idle. Reconciliation shall request movement only when all of the following are true:
+
+1. The desired target revision is current and not already satisfied.
+2. Actual position/status are fresh enough to make a safe decision, or bounded queries have refreshed them.
+3. No current operation already addresses that motor/target revision.
+4. Local movement has reached a stopped/settled state and the local-input debounce period has elapsed.
+5. The motor has no blocking fault, communication-unavailable state, active stop, or retry-exhaustion record for that target revision.
+6. The configured retry limit, minimum retry interval, and total reconciliation deadline permit another attempt.
+
+Each correction is a normal revisioned `CurtainController` operation. Success marks the target satisfied. A verified stopped mismatch may retry only within configured bounds. Transport failure, stale/unknown feedback, blocked/locked motor feedback, or retry exhaustion records an explicit unmet reason and suppresses further automatic writes for that target revision until fresh recovery evidence, an authorized retry/reset, or a newer target revision makes another attempt eligible. This prevents an endless motor-command loop.
+
+Open/close/group commands may use the proven limit operations. Intermediate percentages use the verified percentage command. The control layer shall not convert a percentage into undocumented raw counts. Reconciliation decisions, requested operations, observations, retries, and terminal outcomes are emitted to the live event stream.
+
+##### Manual web control
+
+FastAPI shall serve `static/html/index.html` at `/` and the versioned/deployable contents of `static/` at `/static`. The future client shall use standards-based HTML, CSS, JavaScript, and an inline SVG symbol sprite with the required semantic icon IDs; it shall have no Node/npm, jQuery, Socket.IO, front-end framework, external CDN, or external font dependency. `CurtainControl` remains UI-agnostic: FastAPI owns files/routes and translates UI requests into validated calls on the facade. This subsection specifies future behavior and does not authorize implementation in this iteration.
+
+The primary screen is optimized for the exceptional manual action: normally automation needs no intervention; when it does, a room reaches the opposite terminal state with one press. Quick tiles default to Full Home (`fa-home`, target `All Windows`), Entry (`fa-door-open`), Sunroom (`fa-sun`), and Studio (`fa-mobile-alt`). Each tile always includes a text state plus a status symbol: `fa-curtain-open` for all members at or within tolerance of `0`, `fa-curtain-closed` for all at or within tolerance of `100`, and `fa-curtain-half-open` for partial, moving, or mixed known members. Unknown/offline state disables the toggle instead of guessing. A closed room continues to show its room symbol as the principal icon and the curtain symbol as a status indicator.
+
+Pressing a closed tile requests open; pressing an open, partial, moving, or mixed tile requests close. This deterministic mixed-state rule provides one-press closure without hiding the pre-command state. The tile becomes busy while request acceptance is pending, but the client must not optimistically change actual position. It updates from `GET /control-state` and authenticated `WS /events`; after a reconnect it fetches a complete snapshot before applying later events.
+
+Holding a quick tile for 650 milliseconds navigates directly to that room's detailed controls without sending a movement command; each tile includes a short visible hold hint. The detailed target list is scoped to the room group, every configured subgroup whose members are wholly contained in that room, and the individual curtains belonging to the room; unrelated or merely overlapping groups are excluded. The room group is selected and the position panel is brought into view. Releasing after a recognized hold must suppress the synthetic click so a hold can never also toggle the room. Pointer cancellation or leaving the tile cancels the pending hold, and the native touch context menu is suppressed on these controls. `Shift+Enter` provides the equivalent direct-detail action for keyboard users, while ordinary Enter remains the one-press toggle. Selecting Home in the bottom toolbar restores the unfiltered target list.
+
+The fixed bottom tool bar contains exactly three primary destinations:
+
+1. Home (`fa-home`) lists rooms, subgroups, and curtains. Selecting any target enables open/close and an integer `0..100` slider, where `0` is open and `100` is closed.
+2. Configure (`fa-gear`) edits validated group membership and calibrates an individual motor's top/open or bottom/closed physical limit. Calibration requires administrator authorization, a fresh stopped motor state, an explicit confirmation, and an individual motor; it is never issued through a group or generic movement action.
+3. Schedule (`fa-clock`) lists and creates fixed-time or supported solar, twilight, lunar, weather, temperature, and environmental actions. The form produces the same validated `ScheduleRule` used for configuration-file rules.
+
+The layout shall work at 320 CSS pixels and at desktop widths, use at least 44 by 44 CSS-pixel touch targets, preserve visible keyboard focus, expose control names and textual state to assistive technology, and honor `prefers-reduced-motion`. Icons may reinforce but never be the only state indication. The requested `fa-*` names are semantic IDs in the local sprite; exact Font Awesome artwork or a Font Awesome runtime dependency is not required.
+
+`POST /actions` shall validate/authenticate the request, normalize it to `ControlIntent`, then call `CurtainControl.submit()`. The supported legacy intent mapping is:
+
+| Web/API intent | Normalized controller action | Legacy Node behavior preserved |
+|---|---|---|
+| Open a motor or group | `open` / up limit / position 0 | Web `Open` action mapped to `UpLimit`. |
+| Close a motor or group | `close` / down limit / position 100 | Web `Close` action mapped to `DownLimit`. |
+| Stop active movement | `stop` | Immediate stop through the normal controller path and pause reconciliation for the affected target revision until resume/new target. |
+| Set percentage | `set_position` with integer `0..100` | Supported programmatic position control; endpoints remain consistent with open/close. |
+
+The route shall return HTTP 202 and an operation/decision identifier when an action is accepted. Invalid input, an unknown/disabled target, or failed authorization shall produce a typed 4xx response and zero SDN writes. Transport unavailability shall produce a safe 503 response. The resulting `Operation` and `MotorState` progression shall be published through the existing WebSocket event stream so a web client can show opening/closing progress and the verified terminal state.
+
+##### Autonomous scheduling and solar control
+
+Each autonomous action shall originate from one enabled `ScheduleRule` in JSON. At minimum, the implementation shall support:
+
+- recurring fixed local open/close/percentage times represented by a local-time trigger or standard five-field cron expression; and
+- solar-calendar events for sunrise, sunset, civil dawn/dusk, nautical dawn/dusk, and astronomical dawn/dusk, each with a signed offset in seconds.
+
+Cron syntax is minute, hour, day-of-month, month, and day-of-week. The implementation shall document its day-of-week numbering and reject nonstandard extensions unless explicitly enabled. Rules are evaluated in their configured IANA timezone. Ambiguous/nonexistent local times at daylight-saving transitions follow an explicit per-rule policy and may not run twice accidentally.
+
+Solar occurrences shall be calculated locally from the configured latitude, longitude, elevation when supported, calendar date, and IANA timezone. Civil, nautical, and astronomical twilight correspond to solar-center altitudes of `-6`, `-12`, and `-18` degrees respectively. The scheduled instant is the calculated event plus its offset. Calculations shall be refreshed at startup, after each occurrence, at the next local-date boundary, and after a relevant configuration reload. Daylight-saving transitions shall use the configured timezone rather than a fixed UTC offset. A polar day/night or unavailable event shall produce an explicit skipped/unavailable result and shall not default to midnight or execute a command.
+
+`CurtainScheduler` calculates/waits for occurrences and evaluates typed trigger conditions; it does not apply target priority or protection policy. When an occurrence becomes due, its adapter creates a `ControlIntent` whose idempotency key is deterministically derived from rule ID, scheduled UTC instant, and configuration revision, then calls `CurtainControl.submit()`. Persisted handled keys prevent clock adjustment, recomputation, or duplicate callbacks from creating a second SDN command.
+
+On startup or delayed wake, the default missed-event policy is `skip`. A rule may configure `run_within_grace_seconds`; then an overdue event may run once only when its age is within that positive bound. Events outside the bound are recorded as skipped. Handled-event keys are persisted atomically, so restart shall not replay an occurrence retained in the configured bounded history. A crash between a physical SDN write and persistence/feedback can still leave an indeterminate outcome; startup refreshes actual state and reconciles the durable target rather than blindly replaying that write.
+
+##### Environmental event rules
+
+Event rules may use locally calculated celestial data or timestamped provider observations. They support an action when a predicate changes from false to true, remains true for its debounce duration, is fresh, and is outside its cooldown. Periodic evaluation while a predicate remains true shall not repeatedly issue commands.
+
+| Event/condition | Required semantics |
+|---|---|
+| Sunrise/sunset and twilight | Time events described above, with signed offset and IANA timezone. Twilight names shall be explicit (`civil_dawn`, `civil_dusk`, `nautical_dawn`, `nautical_dusk`, `astronomical_dawn`, `astronomical_dusk`). |
+| Moon visible | A deterministic policy predicate, not a promise of naked-eye visibility: moon geometric altitude is above the configured horizon threshold, optional illumination/phase minimum is met, and optional cloud/sun-altitude conditions pass. Moonrise/moonset boundary times and calculation version are recorded. |
+| Weather | Typed fields such as cloud cover, precipitation rate/probability, wind speed/gust, condition code, and provider alert status. Every field declares units, comparator, maximum age, and missing-data behavior. |
+| Outside temperature | Timestamped temperature with explicit unit normalized to the configured canonical unit. Separate activation/clear thresholds or hysteresis are required for repeated threshold rules. |
+| Other environment | An allowlisted registered source and field with declared type/unit, polling or push behavior, freshness limit, comparator set, and failure policy. Arbitrary Python expressions, templates, or code execution are forbidden. |
+
+Conditions combine through a validated `all`, `any`, and `not` tree with bounded depth and item count. A trigger identifies *when to evaluate*; conditions identify *whether to act*. Missing, stale, unit-incompatible, or provider-error data defaults to `unknown` and fail-closed (`skip`) unless the rule explicitly selects another safe behavior. Each decision records source timestamps and values used, but never provider credentials.
+
+Environmental rules must specify debounce, cooldown, and—where a continuously varying threshold can oscillate—hysteresis/clear behavior. After restart, the first observation establishes baseline predicate state; it does not synthesize a rising edge unless the rule's explicit startup policy permits execution within a grace window.
+
+##### Durable control-state persistence
+
+Durable runtime control state shall be stored in a separate versioned JSON file configured by `control.state_file` (recommended `/var/lib/curtain-control/control-state.json`). It is operational state, not system configuration or credentials, and does not reintroduce an SQL database. `config.py` or a small repository in `curtain_control.py` shall validate `ControlStateDocument`, write a temporary file in the same directory, flush it, and atomically replace the prior file.
+
+Accepted target/override/lock changes must be durably written before the corresponding movement request is submitted. Actual position is reconstructed from fresh hardware queries at startup and is not trusted from the state file. A missing file initializes targets from configured startup defaults or fresh actual positions according to explicit policy. A malformed/incompatible file causes a safe startup failure or configured read-only/no-motion mode; it must never silently discard active locks or overrides. Configuration fingerprint mismatch triggers target/reference reconciliation and requires removed/renamed devices to be quarantined rather than reassigned by list position.
+
+##### Conflict, safety, and lifecycle rules
+
+1. Safety stop is always accepted for an addressable motor. It cancels pending reconciliation and does not by itself change the durable target; a later correction requires stopped feedback and an explicit resume/new-target policy.
+2. An active application lock rejects every target-changing source except authorized unlock/replacement. An active durable override rejects schedule, environment, ordinary web, and Somfy-button target changes; authorized override replacement/clear is explicit and audited.
+3. Without those protections, authenticated web intent supersedes overlapping schedule/environment operations. A verified local-button terminal position is adopted as target after debounce so reconciliation does not fight ordinary physical use.
+4. Repeated manual requests for the same target revision use controller idempotency. Repeated persisted schedule/environment occurrence IDs are skipped before reaching the controller.
+5. Simultaneous rules are processed in stable order by occurrence UTC instant, configured priority, then rule ID. Each accepted intent creates a target revision; stale queued intents/operations are discarded.
+6. Invalid/stale rules, missing targets, unavailable celestial events, disabled rules, unknown environmental predicates, and failed conditions cannot produce an SDN write. Missing weather/environment values are never interpreted as zero.
+7. Configuration reload is coordinated and all-or-nothing at the application layer: `main.py` validates the complete candidate, prepares both `CurtainControl` inventory/policy and scheduler rules, commits them, then cancels obsolete occurrences. Handled events are not replayed, and protection/targets for missing devices are quarantined for operator resolution.
+8. `main.py` starts the backend/SDN/controller, then `CurtainControl`, then the scheduler/adapters. Shutdown reverses that order so event admission stops before reconciliation and physical monitoring. The same behavior applies in mock, simulated, and real modes.
+
+##### CurtainControl testing
+
+Implement these cases in `tests/test_curtain_control.py` with an injected virtual clock, fake scheduler callback, validated Pydantic fixtures, and mocked `CurtainController`. Integration cases shall also run through production FastAPI and `SdnSim` where identified.
+
+| Name | Test description | SDN interface tested |
+|---|---|---|
+| CC01 — Manual open/close | Submit motor and group open/close from `POST /actions`; verify normalization to positions 0/100, source context, one controller submission, 202 response, and live operation/state events. | FastAPI adapter -> `CurtainControl.submit()` -> `CurtainController.submit()`; simulated SDN in integration test |
+| CC02 — Manual validation and failures | Reject unauthorized, malformed, unknown, and disabled-target requests with zero controller/SDN writes; translate controller transport failure safely. | Route validation; `CurtainControl.submit()`; controller mock/write count |
+| CC03 — Fixed schedule occurrence | Advance a timezone-aware virtual clock to recurring open/close times; dispatch one intent at due time and compute the next event. | `CurtainScheduler` adapter -> `CurtainControl.submit()` -> controller mock |
+| CC04 — Solar occurrence | Verify known sunrise/sunset/dawn/dusk fixtures, positive/negative offsets, local/UTC timestamps, DST transition behavior, and unavailable polar events. | `DataSources`; scheduler; `CurtainControl` dispatch/write count |
+| CC05 — Deduplication and missed events | Deliver duplicate intent keys, move the wall clock backward/forward, test default skip and grace execution, and prove at most one controller submission per occurrence ID. | `CurtainControl.submit()`; controller mock/write count |
+| CC06 — Manual/schedule conflict | While scheduled movement is active, submit an overlapping authenticated manual request; verify target revision and controller-operation supersession while unaffected members continue. | `CurtainControl` arbitration; `CurtainController` revision behavior |
+| CC07 — Coordinated atomic reload | Apply valid/invalid inventory, policy, rule, and location updates; verify prepare/commit, cancellation/recalculation, revisions, quarantine/no replay, and preservation of all old components after failure. | application reload coordinator; `CurtainControl.reload()`; scheduler reload; controller mock |
+| CC08 — Lifecycle and backend independence | Verify application-managed controller -> control -> scheduler startup and reverse shutdown, idempotent component lifecycles, no dependency cycle, and identical decisions with mock/simulated backends. | application lifespan; `CurtainControl.start()/close()`; `SdnApi` over `SdnSim` |
+| CC09 — Motor and group targets | Submit motor/group percentages, verify atomic member expansion, later individual/group supersession, and satisfied/moving/mixed/offline/failed aggregate states. | `submit()`; `snapshot()`; `CurtainController.submit()` mock |
+| CC10 — Input priority and durable override | Exercise web, local-button, schedule, environment, reconciliation, protection replace/clear/expiry, and safety stop; verify deterministic acceptance and zero writes for rejected intent. | `submit()`; `set_protection()`; controller mock/write count |
+| CC11 — Policy and hardware-lock separation | Lock motor/group targets, reject mutations, permit stop/unlock, observe physical local movement, and restore the locked target without sending any unverified SDN lock command. | `set_protection()`; `observe()`; `CurtainController.submit()/stop()` |
+| CC12 — Somfy local-button intent | Feed supported local-UI moving/stopped feedback; adopt stable terminal position only when unprotected. With override/lock retain target and reconcile after debounce; ambiguous cause is not guessed. | `observe()` -> internally generated `ControlIntent`; reconciliation |
+| CC13 — Reconciliation and truthful actual state | Detect target mismatch, coalesce scans, issue one correction, verify tolerance/freshness, and always update actual state before/during/after failure. | `observe()` / internal reconcile -> controller operations |
+| CC14 — Retry exhaustion and recovery | Bound retries/deadline, mark `failed_unmet`, suppress write loops, then test fresh recovery, authorized retry, and new-target revision eligibility. | reconciliation records; controller transport/verification outcomes |
+| CC15 — Durable state recovery | Atomically persist targets/overrides/locks/event keys before movement; restore after restart, reject corruption/version mismatch safely, quarantine configuration mismatch, refresh actual state, and avoid blind command replay. | state repository; `start()`; controller queries/reconciliation |
+| CC16 — Cron, twilight, moon, and environment | Validate five-field cron/DST, every twilight boundary/offset, moon predicate, weather/temperature units and freshness, condition trees, hysteresis, debounce, cooldown, edge triggering, and provider failure. | `CurtainScheduler`; `DataSources`; automation adapter -> `submit()` |
+| CC17 — Adapter equivalence and isolation | Send equivalent web and scheduler inputs; assert normalized intent differs only in source/audit metadata and produces the same target/policy result. Prove no adapter expands groups or calls controller/SDN directly. | adapters -> `submit()`; dependency/call spies |
+| CC18 — Capabilities, cached reads, and stop pause | Reject unsupported features before persistence/writes, verify group capability intersection, ensure `snapshot()` performs no I/O, test internal/adapter endpoint convention mappings, and prove stop pauses reconciliation until resume/new target. | `CurtainCapabilities`; `snapshot()`; `submit(stop/resume)`; controller mock |
+
+Static, server, DOM, and browser behavior shall be implemented in `tests/test_web_ui.py` and browser integration tests when the interface is generated. Tests shall use the production assets and API routes, not a parallel test page. No executable web-interface test is required before implementation begins.
+
+| Test | Description | Interface tested |
+|---|---|---|
+| UI01 — Static delivery | `GET /` returns the new page; CSS, JavaScript, and SVG assets return correct content types and no legacy/CDN dependency. | FastAPI static routes; `static/` |
+| UI02 — Responsive/accessibility contract | Verify viewport metadata, semantic buttons/navigation, textual status, keyboard focus, minimum touch sizing, and reduced-motion CSS at mobile and desktop viewports. | HTML/CSS DOM and computed layout |
+| UI03 — Quick tile mapping | Defaults map Full Home, Entry, Sunroom, and Studio to the required room icons/targets and map open/closed/mixed state to the required curtain status symbols. | `/config`; `/control-state`; quick tiles |
+| UI04 — Tile press and hold | One press sends exactly one close for open/mixed/partial state or one open for closed state; unknown/offline sends none. A 650 ms hold sends no action, suppresses the following click, and opens a list containing only the room, wholly contained subgroups, and member curtains. Verify pointer cancellation and `Shift+Enter`. | quick tile -> `POST /actions` or scoped detail view |
+| UI05 — Truthful live movement | Accepted requests do not overwrite actual state; WebSocket events cause visible intermediate/terminal refresh; reconnect obtains a complete snapshot and does not regress sequence. | `WS /events`; `GET /control-state`; UI status |
+| UI06 — Target slider | Room/group/curtain selection displays actual state and sends validated integer `0..100` positions with endpoint conventions intact. | target browser; slider; `POST /actions` |
+| UI07 — Configuration safety | Group edits submit validated membership; calibration requires an individual stopped motor, fresh state, authorization, and confirmation; cancel/invalid state sends no write. | group and calibration views/routes |
+| UI08 — Schedule editor | Create fixed-time and event/offset rules through the validated schedule schema; show API validation without losing user input. | schedule view; `/schedules` |
+
 ### Use Cases
 
 | Use case ID | Use case description | Scenario description | Behavior |
@@ -801,20 +1197,27 @@ The generation report shall map SDN-001..014 to implemented methods and named te
 | UC-006 | Run schedule | A cron or celestial event becomes due. | Evaluate condition/configuration and execute its configured action once. |
 | UC-007 | Run without hardware | Operator selects simulated SDN mode. | Construct `SdnApi` with `SdnSim`, execute the normal controller/API workflow with hardware-like raw responses and timing, and open no serial port. |
 | UC-008 | Measure simulator fidelity | Developer records an allowlisted real execution and reproduces it in simulation. | Validate trace comparability, align events, calculate component and overall `0..1` fidelity scores, and report mismatches without altering either trace. |
+| UC-009 | Manual web control | A user opens the bundled responsive client and taps a room tile. | FastAPI authenticates and validates exactly one request, `CurtainControl` applies manual priority, and verified movement events update the client live without optimistic actual state. |
+| UC-010 | Run fixed/solar automation | A configured local time, sunrise, or sunset occurrence becomes due. | Calculate one timezone-aware occurrence, deduplicate it, apply override/condition policy, and submit its open/close action through `CurtainControl`. |
+| UC-011 | Adopt Somfy button input | A user moves a curtain from a supported local Somfy control while no override/lock is active. | Observe local-UI cause and stable stopped position, make it the new durable target, and update group aggregates without fighting the user. |
+| UC-012 | Maintain protected target | Actual position differs from a durable or locked target after local/external movement. | Preserve truthful actual state, wait for settling, issue bounded correction, and mark explicit unmet failure rather than retry forever. |
+| UC-013 | Apply environmental automation | A moon, weather, outside-temperature, or registered environmental predicate crosses its configured edge. | Validate freshness/units/conditions, debounce/deduplicate/cool down, respect override/lock, and set the configured target once. |
+| UC-014 | Configure from browser | An authorized administrator edits group membership, calibrates one stopped curtain, or creates a schedule. | Validate the complete resource, require explicit calibration confirmation, persist atomically, and display safe validation feedback. |
 
 ### Program Structure
 
 | Module / object | Responsibilities |
 |---|---|
-| `main.py` | Parse command-line arguments, construct the support classes, define the small FastAPI REST API, and manage application startup/shutdown. |
+| `main.py` | Parse command-line arguments, construct the support classes, define the FastAPI REST/WebSocket API, mount `static/`, and manage application startup/shutdown. |
 | `config.py` | Pydantic configuration/credential models; JSON settings load, validation, optional atomic write, and safe YAML loading of restricted `creds.yaml`. |
 | `serial_interface.py` | `SerialInterface`, a small `pyserial` wrapper that opens, closes, reads, and serializes writes to the RS-485 port. |
 | `sdn_api.py` | `SdnApi`, selecting the configured real/simulated byte backend and implementing SDN commands, packet construction, byte inversion, addressing, checksums, response parsing, and backend-boundary trace recording. |
 | `sdn_sim.py` | Required `SdnSim`, simulated motor/bus state, timing/fault scenarios, raw response generation, trace schemas, comparison, and fidelity scoring. |
 | `data_sources.py` | `DataSources`, providing solar, lunar, and optional cached weather observations. |
-| `controller.py` | `CurtainController`, owning Pydantic request/state/operation models, target lookup, polling, verification, optional single retry, and live snapshots. |
-| `scheduler.py` | `CurtainScheduler`, providing autonomous cron and celestial scheduling and submitting actions to `CurtainController`. |
-| `alexa.py` | Optional `AlexaInterface` that maps Alexa directives and endpoint identifiers to `CurtainController` commands. |
+| `curtain_control.py` | `CurtainControl`, the application facade and desired-state reconciler for web/local-button/autonomous intent, durable targets/overrides/locks, bounded correction, schedule lifecycle, and configuration reload. |
+| `controller.py` | `CurtainController`, owning resolved movement/state/operation models, SDN-address lookup, polling, verification, optional single retry, and physical-state events. |
+| `scheduler.py` | `CurtainScheduler`, calculating and waiting for fixed, cron, and celestial occurrences and delivering them to `CurtainControl`. |
+| `static/html/index.html`, `static/css/app.css`, `static/js/app.js` | Future dependency-free responsive user interface, inline semantic SVG icons, REST mutations, and WebSocket-driven state refresh. The current repository contains directory placeholders only. |
 | `requirements.txt` | Runtime Python dependencies. |
 | `config.example.json` | Non-secret example system configuration. |
 | `creds.example.yaml` | Credential schema with placeholder values only. |
@@ -826,10 +1229,11 @@ flowchart LR
     subgraph Entry[Process entry and external adapters]
         Main[main.py<br/>FastAPI and lifecycle]
         Scheduler[scheduler.py<br/>CurtainScheduler]
-        Alexa[alexa.py<br/>optional AlexaInterface]
+        Web[static/<br/>responsive web client]
     end
 
     subgraph Core[Application control]
+        Control[curtain_control.py<br/>CurtainControl<br/>policy and orchestration]
         Controller[controller.py<br/>CurtainController<br/>MotorState and Operation]
         Sources[data_sources.py<br/>solar, lunar, weather]
     end
@@ -842,19 +1246,22 @@ flowchart LR
     end
 
     subgraph External[External systems]
-        Clients[REST and WebSocket clients]
-        AlexaCloud[Amazon Alexa]
+        Browser[Mobile or desktop browser]
+        Clients[Other REST and WebSocket clients]
         Weather[Weather provider]
         Motors[Somfy SDN motors]
     end
 
     Config[config.py<br/>config.json and creds.yaml]
+    State[control-state.json<br/>targets, overrides, locks, event keys]
 
-    Clients <-->|HTTP / WebSocket| Main
-    AlexaCloud <-->|directive / response| Alexa
-    Main -->|ControlRequest| Controller
-    Scheduler -->|ControlRequest| Controller
-    Alexa -->|ControlRequest| Controller
+    Browser -->|GET / and /static| Main
+    Main -->|HTML / CSS / JS / SVG| Browser
+    Browser <-->|REST / WebSocket| Main
+    Clients <-->|REST / WebSocket| Main
+    Main -->|normalized ControlIntent| Control
+    Scheduler -->|normalized ControlIntent| Control
+    Control -->|MovementRequest and target revision| Controller
     Controller -->|send / query| Sdn
     Sdn <-->|mode=real raw frames| Serial
     Sdn <-->|mode=simulated raw frames| Sim
@@ -868,18 +1275,24 @@ flowchart LR
     Config -.serial settings.-> Serial
     Config -.backend, simulation, recording settings.-> Sdn
     Config -.simulated devices and timing profile.-> Sim
+    Control <-->|atomic validated state| State
     Controller -->|MotorState / Operation events| Main
+    Controller -->|MotorState / Operation events| Control
 ```
 
-`CurtainController` shall be the only class that calls `SdnApi`. The scheduler, REST routes, and Alexa adapter shall all translate their input into the same control operation and submit it to the controller. This provides consistent validation, safety handling, logging, and serial-write ordering without introducing a large framework or deep class hierarchy.
+`CurtainControl` shall be the only application facade called by the scheduler and REST control routes and the only owner of durable desired targets. It applies source-aware priority, override/lock, and bounded reconciliation policy and submits accepted operations to `CurtainController`. `CurtainController` shall be the only class that calls `SdnApi` and remains the owner of actual motor observations. This provides consistent validation, safety handling, logging, and serial-write ordering without introducing a large framework or deep class hierarchy.
 
-The arrows define allowed module dependencies. `SerialInterface` carries real bytes and has no curtain knowledge. `SdnSim` implements configured SDN motor/bus behavior but has no HTTP, schedule, Alexa, or controller dependency. `SdnApi` understands SDN addresses, frames, feedback, selected backend, and trace recording but not configured display names, schedules, HTTP, or Alexa. `CurtainController` owns runtime state and operations. External adapters communicate with real or simulated motors only through the controller.
+The arrows define allowed module dependencies. `SerialInterface` carries real bytes and has no curtain knowledge. `SdnSim` implements configured SDN motor/bus behavior but has no HTTP, schedule, or controller dependency. `SdnApi` understands SDN addresses, frames, feedback, selected backend, and trace recording but not configured display names, schedules, or HTTP. `CurtainControl` owns names/groups, desired state, source policy, and protection; `CurtainController` owns resolved operations and actual motor observations. External adapters communicate with real or simulated motors only through these two layers.
 
 #### Inter-module Communication Contract
 
 | Producer | Data / call | Consumer | Direction and purpose |
 |---|---|---|---|
-| `main.py`, scheduler, Alexa adapter | Validated `ControlRequest` | `CurtainController.submit()` / `stop()` | Inbound user or automated intent. |
+| FastAPI web adapter | Validated normalized `ControlIntent` | `CurtainControl.submit()` | Inbound manual intent with source, actor, precondition revision, and idempotency key. |
+| `CurtainScheduler` automation adapter | Validated normalized `ControlIntent` | `CurtainControl.submit()` | Due autonomous intent with stable occurrence key and evidence. |
+| `CurtainControl` | Accepted `MovementRequest` and target revision | `CurtainController.submit()` / `stop()` | Execute after deduplication, priority, protection, group expansion, and durable target commit. |
+| `CurtainController` | Sequenced actual `MotorState` / `Operation` event | `CurtainControl.observe()` | Update truthful reported/group state, detect supported local UI, calculate delta, and enqueue eligible reconciliation. |
+| `CurtainControl` | Validated `ControlStateDocument` | Atomic local state repository | Persist target/override/lock/event/retry revisions before related physical action. |
 | `CurtainController` | Resolved command and address | `SdnApi.send()` | Transmit open, close, stop, or percentage command. |
 | `CurtainController` | Address and bounded timeout | `SdnApi.get_position()` / `get_status()` | Poll actual motor state for monitoring and verification. |
 | `SdnApi` | Complete encoded frame | `SerialInterface.write()` | Ordered RS-485 transmission. |
@@ -892,7 +1305,7 @@ The arrows define allowed module dependencies. `SerialInterface` carries real by
 | `CurtainController` | Sequenced `MotorState` / `Operation` event | FastAPI WebSocket adapter | Live client updates and reconnect recovery. |
 | `DataSources` | Time-stamped solar/lunar/weather data | `CurtainScheduler` | Evaluate configured autonomous rules. |
 
-No module shall mutate another module's Pydantic model instance. Calls pass validated immutable models or primitive bytes; the receiving owner creates a newly validated replacement when state changes. Errors cross boundaries as typed exceptions and are translated into safe API/operation errors at `CurtainController` or `main.py`.
+No module shall mutate another module's Pydantic model instance. Calls pass validated immutable models or primitive bytes; the receiving owner creates a newly validated replacement when state changes. Errors cross boundaries as typed exceptions and are translated into safe application/API errors at `CurtainController`, `CurtainControl`, or `main.py`.
 
 #### Startup and Shutdown Communication
 
@@ -901,8 +1314,10 @@ sequenceDiagram
     participant OS as CLI / systemd
     participant Main as main.py
     participant Config as config.py
+    participant State as control-state.json
     participant Backend as SerialInterface or SdnSim
     participant SDN as SdnApi
+    participant Control as CurtainControl
     participant Controller as CurtainController
     participant Scheduler as CurtainScheduler
 
@@ -913,14 +1328,25 @@ sequenceDiagram
     SDN->>Backend: open
     Backend-->>SDN: connection generation 1
     Main->>SDN: start receive task and optional recorder
-    Main->>Controller: construct and start monitoring
+    Main->>Control: construct with controller, inventory, policy, repository
+    Main->>Scheduler: construct with rules, data sources, submit callback
+    Main->>Controller: start monitoring
     Controller->>SDN: initial position/status queries
     SDN-->>Controller: MotorFeedback or typed failure
+    Main->>Control: start
+    Control->>State: load and validate targets/overrides/locks/event keys
+    State-->>Control: ControlStateDocument
+    Control->>Controller: subscribe and obtain current snapshot
+    Controller-->>Control: fresh MotorState snapshot
+    Control->>Control: reconcile eligible durable targets
     Main->>Scheduler: start configured schedules
     Main-->>OS: FastAPI ready
 
     OS->>Main: shutdown signal
-    Main->>Scheduler: stop
+    Main->>Scheduler: stop and reject new occurrences
+    Main->>Control: close
+    Control->>State: atomically flush pending durable decisions
+    Control->>Controller: unsubscribe
     Main->>Controller: close monitoring and subscribers
     Controller->>SDN: cancel pending queries
     Main->>SDN: stop receive task and flush recorder
@@ -935,11 +1361,20 @@ The exact route naming may be refined during implementation, but the following r
 
 | Method and route | Behavior |
 |---|---|
+| `GET /` and `GET /static/{path}` | When implemented, serve `static/html/index.html` and same-origin CSS/JavaScript assets with correct content types. Static paths are read-only and may not shadow API routes. |
 | `GET /health` | Return service health, selected SDN mode, backend readiness, and recording status without operating a curtain. |
 | `GET /config` | Return the validated in-memory configuration with no credentials. |
 | `PUT /config` | Validate and atomically replace the complete JSON configuration; reload dependent runtime state safely. |
 | `GET /motors` and `GET /groups` | Return configured motors or groups. |
-| `POST /actions` | Accept a `ControlRequest` for open, close, stop, or set percentage and submit through the controller. Position operations return an operation ID pending verification. |
+| `PUT /groups/{id}` | Administrator-only validated replacement of one group's curtain membership, committed through the same complete configuration validation and atomic write path as `PUT /config`. |
+| `POST /actions` | Normalize an authenticated manual request for open, close, stop, resume, or percentage into `ControlIntent` and call `CurtainControl.submit()`. Movement changes the durable target; stop pauses its revision. Return the decision and pending operation ID when applicable. |
+| `GET /control-state` | Return desired/actual motor state, group aggregates, reconciliation status, and redacted override/lock metadata. |
+| `GET /schedules` and `POST /schedules` | Return schedules or validate and atomically add a `ScheduleRule`, then reload scheduler occurrences without replay. |
+| `POST /motors/{id}/calibration` | Administrator-only top/bottom limit capture for one motor. Require fresh stopped state, explicit request confirmation evidence, applicable capability, and a dedicated calibration service path; reject groups and never treat acceptance as verified calibration. |
+| `PUT` / `DELETE /motors/{id}/override` and `/groups/{id}/override` | Establish/replace or clear an authorized durable override with target/hold-current, reason, and optional expiry. |
+| `PUT` / `DELETE /motors/{id}/lock` and `/groups/{id}/lock` | Establish or clear an authorized application policy lock; never imply an SDN hardware lock was sent. |
+| `POST /motors/{id}/reconcile` | Authorized reset/retry of an unmet target revision after returning current actual/target/failure information. |
+| `WS /events` | Authenticated sequenced controller/control events. On connect/reconnect, clients obtain a current snapshot plus a session identifier before incremental updates. |
 
 The state, operation, target, stop, and WebSocket routes defined in the SDN subsection are part of this API contract. Future extension commands require an explicit update and verified payload/capability tests.
 
@@ -955,7 +1390,7 @@ python main.py \
   --credentials /etc/curtain-control/creds.yaml
 ```
 
-The document shall be UTF-8 JSON and include schema version, SDN backend selection, applicable real/simulation/recording settings, site location used by celestial schedules, motors, groups, and schedules. Addresses may be JSON integers or `0x`-prefixed strings, but the loader shall normalize them to integers in the valid 24-bit range.
+The document shall be UTF-8 JSON and include schema version, SDN backend selection, applicable real/simulation/recording settings, durable-control/reconciliation settings, site location used by celestial schedules, motors, groups, data sources, and schedules. Addresses may be JSON integers or `0x`-prefixed strings, but the loader shall normalize them to integers in the valid 24-bit range.
 
 ```json
 {
@@ -979,7 +1414,26 @@ The document shall be UTF-8 JSON and include schema version, SDN backend selecti
     "parity": "odd",
     "stopbits": 1
   },
+  "control": {
+    "state_file": "/var/lib/curtain-control/control-state.json",
+    "startup_target_policy": "fresh_actual_if_missing",
+    "position_tolerance_percent": 2,
+    "local_input_debounce_seconds": 1.0,
+    "reconcile_interval_seconds": 30,
+    "retry_limit": 1,
+    "retry_cooldown_seconds": 10,
+    "reconciliation_deadline_seconds": 120,
+    "handled_event_history_limit": 1000
+  },
   "location": { "latitude": 47.6062, "longitude": -122.3321, "timezone": "America/Los_Angeles" },
+  "web": {
+    "quick_rooms": [
+      { "id": "all", "label": "Full Home", "target": "All Windows", "icon": "fa-home" },
+      { "id": "entry", "label": "Entry", "target": "Entry", "icon": "fa-door-open" },
+      { "id": "sunroom", "label": "Sunroom", "target": "Sunroom", "icon": "fa-sun" },
+      { "id": "studio", "label": "Studio", "target": "Studio", "icon": "fa-mobile-alt" }
+    ]
+  },
   "motors": [
     { "address": "0x0671E4", "name": "Stairs East", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 }
   ],
@@ -987,7 +1441,9 @@ The document shall be UTF-8 JSON and include schema version, SDN backend selecti
     { "address": "0x010110", "name": "Main Floor", "description": "", "devices": ["Stairs East"] }
   ],
   "schedules": [
-    { "id": "weekday-open", "timer": "cron", "expression": "45 5 * * 1-5", "action": { "action": "open", "target_type": "group", "target": "Main Floor", "source": "scheduler" } }
+    { "id": "weekday-open", "enabled": true, "timer": "cron", "expression": "45 5 * * 1-5", "action": { "action": "open", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
+    { "id": "sunset-close", "enabled": true, "timer": "solar", "event": "sunset", "offset_seconds": -1800, "action": { "action": "close", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
+    { "id": "hot-afternoon-shade", "enabled": true, "timer": "solar", "event": "civil_dawn", "offset_seconds": 21600, "conditions": { "all": [{ "source": "weather", "field": "outside_temperature", "operator": ">=", "value": 80, "unit": "degF", "max_age_seconds": 900, "hysteresis": 3 }] }, "debounce_seconds": 300, "cooldown_seconds": 3600, "action": { "action": "set_percent", "percentage": 75, "target_type": "group", "target": "Main Floor", "source": "environment" } }
   ]
 }
 ```
@@ -996,7 +1452,7 @@ The document shall be UTF-8 JSON and include schema version, SDN backend selecti
 
 Simulation configuration validates a fixed integer seed, positive `time_scale`, named/versioned timing profile, one simulated state entry per configured motor, initial position `0..100`, positive travel time, supported capabilities, and optional explicitly named fault scenarios. Fidelity comparison requires `time_scale=1.0`. Timing profiles contain protocol-limit defaults plus calibrated response/chunk/movement distributions and comparison tolerances; every calibration records provenance to real trace IDs. Unknown timing profiles, duplicate simulated devices, missing configured motors, or scenarios targeting unknown motors are startup errors.
 
-The implementation shall reject duplicate names or addresses, group members that do not refer to configured motors, malformed schedules, invalid coordinates/timezones, invalid address ranges, invalid backend combinations, invalid serial/simulation/recording settings, and unwritable enabled recording destinations. File replacement shall use a temporary file in the same directory followed by an atomic rename. The original configuration must remain intact if validation or writing fails. The JSON configuration and trace files shall contain no passwords, API keys, OAuth secrets, or access tokens.
+The implementation shall reject duplicate names or addresses, group members that do not refer to configured motors, malformed schedules/condition trees, incompatible units, invalid coordinates/timezones, invalid control/retry/persistence limits, invalid address ranges, invalid backend combinations, invalid serial/simulation/recording settings, and unwritable enabled recording/state destinations. File replacement shall use a temporary file in the same directory followed by an atomic rename. The original configuration/control-state document must remain intact if validation or writing fails. Configuration, control-state, and trace files shall contain no passwords, API keys, OAuth secrets, or access tokens.
 
 ### SDN Protocol Compatibility
 
@@ -1015,27 +1471,38 @@ Position and motion/status feedback needed for initial monitoring shall be parse
 
 `DataSources` shall provide a small, common interface for information used by autonomous control:
 
-- Solar: sunrise, sunset, dawn, and dusk calculated locally from date, location, and timezone.
-- Lunar: moonrise, moonset, phase, and illumination calculated locally when requested by a configured rule.
-- Weather: optional cloud cover, temperature, wind, and precipitation retrieved through `httpx` from a configured provider.
+- Solar: sunrise, sunset, solar altitude, and civil/nautical/astronomical dawn/dusk calculated locally from date, location, elevation when supported, and timezone.
+- Lunar: moonrise, moonset, altitude, phase, and illumination calculated locally when requested by a configured rule.
+- Weather: optional cloud cover, outside temperature, wind/gust, precipitation, condition codes, and alerts retrieved through `httpx` from a configured provider.
+- Other environment: explicitly registered typed sources exposing allowlisted fields, units, observation timestamps, health, and freshness; arbitrary expressions or dynamic code imports from configuration are prohibited.
 
-Weather results shall be cached, timestamped, and marked unavailable or stale after failures. A missing weather value must never be interpreted as zero. Solar and lunar calculations shall continue working when the weather provider or network is unavailable.
+Every observation shall carry source, observation time, retrieval time, value, unit, quality/availability, and optional expiry. Results shall be cached, normalized to declared units, and marked unavailable or stale after failures. A missing value must never be interpreted as zero. Solar and lunar calculations shall continue working when the weather provider or network is unavailable. Provider credentials remain in `creds.yaml` and never appear in observations, decisions, or events.
 
 ### Scheduling
 
-Schedules shall support the legacy timer concepts: a one-time ISO date/time, Unix-millisecond timestamp, cron expression, and celestial events with an offset. Each schedule must declare one action and may declare solar, lunar, or weather conditions. The scheduler computes the next due event in the configured timezone, sleeps interruptibly, and recomputes after execution or configuration reload. It must log scheduler errors and continue evaluating later events.
+Schedules shall support the legacy timer concepts: a one-time ISO date/time, Unix-millisecond timestamp, standard five-field cron expression, and celestial events with an offset. Celestial events include sunrise/sunset, all three twilight levels, and lunar boundaries/predicates. Edge-triggered rules may use weather, outside temperature, and registered environmental observations with typed conditions. Each rule declares one target action and explicit timezone/freshness/debounce/cooldown/missing-data behavior as applicable. The scheduler computes the next time event or evaluates the next observation edge, sleeps interruptibly, and recomputes after execution, data update, local-date boundary, or configuration reload. It must isolate/log rule/provider errors and continue evaluating later events.
 
-The legacy hard-coded/test alternating commands shall not be carried forward. Every autonomous action must be explicitly represented in the JSON configuration. The scheduler shall call `CurtainController`; it shall not access `SdnApi` or `SerialInterface` directly.
+The legacy hard-coded/test alternating commands shall not be carried forward. Every autonomous action must be explicitly represented in configuration. The scheduler evaluates a due `ScheduledOccurrence`, then its adapter submits one normalized `ControlIntent` to `CurtainControl`; it shall not call `CurtainController`, `SdnApi`, or `SerialInterface` directly. The detailed occurrence identity, missed-event, solar, deduplication, and conflict behavior is defined in the `CurtainControl` subsection.
+
+### Web Interface
+
+The future client assets are `static/html/index.html`, `static/css/app.css`, and `static/js/app.js`; the required semantic SVG symbols shall be embedded in the HTML. FastAPI shall mount these assets on the same origin as the API so no CORS exception or external asset host is required. The page shall be usable on current mobile and desktop browsers, remain legible when the WebSocket is unavailable, display an offline/reconnecting indicator, and refuse state-dependent toggle actions when actual state is unknown. For this specification iteration, `static/html`, `static/css`, and `static/js` are placeholders and the assets shall not be generated.
+
+The client has no independent control model. It reads inventory from `GET /config`, `GET /groups`, and `GET /motors`; reads actual/desired/convergence state from `GET /control-state`; sends mutations through the documented routes; and treats `WS /events` as an invalidation/change signal. It may debounce a burst of events before refreshing state. It shall never turn an accepted HTTP command into a fabricated actual position. API errors are displayed without exposing raw exceptions, credentials, or network internals.
+
+`config.json` may contain an optional `web.quick_rooms` array. Each entry has a stable ID, display label, configured group target, and an allowlisted local icon ID. If absent, the client uses Full Home/`All Windows`/`fa-home`, Entry/`Entry`/`fa-door-open`, Sunroom/`Sunroom`/`fa-sun`, and Studio/`Studio`/`fa-mobile-alt`. A missing configured target appears unavailable rather than silently mapping to another group. Only local sprite IDs are accepted; arbitrary markup, script, CSS, URLs, or SVG paths from configuration are prohibited.
+
+Authentication and authorization are server responsibilities. The page must work with the deployment's same-origin authenticated session, must not store API credentials in JavaScript, local storage, query strings, or static files, and must not expose administrator controls to an unauthorized response context. Hiding a button is not authorization: every configuration, calibration, and schedule mutation is enforced again by FastAPI.
 
 ### Alexa Control
 
-Alexa support is optional. `AlexaInterface` shall translate validated Alexa endpoint identifiers and directives into calls to `CurtainController`. It shall not contain SDN encoding or direct serial access. Cloud transport, account linking, and public network exposure shall remain isolated from the local curtain-control logic. When Alexa is disabled or credentials are absent, the remainder of the service shall operate normally.
+Alexa is undefined and explicitly deferred. This version shall not include `alexa.py`, Alexa routes, discovery, directives, account linking, proactive reporting, cloud credentials, dependencies, or tests that imply functional Alexa support. A future adapter may translate authenticated directives into the same `ControlIntent` boundary and read truthful `CurtainControl.snapshot()` state, but adding it requires a separate specification update and security review. No current configuration or credential field is reserved or required for Alexa.
 
 ### Program Environment
 
 **Credentials**
 
-No database credentials are used. Non-secret system settings belong in `config.json`; weather keys, Alexa secrets, API keys, and tokens belong in a separate YAML file supplied using `--credentials`.
+No database credentials are used. Non-secret system settings belong in `config.json`; weather keys, API keys, and tokens belong in a separate YAML file supplied using `--credentials`. There are no Alexa credentials in this version.
 
 Production files shall normally be located at:
 
@@ -1106,15 +1573,15 @@ No LLM prompts or in-context-learning files are part of the runtime program. Imp
 | FR-004 | Persist configuration changes atomically to the same JSON file. | Update test verifies valid replacement and preservation after write/validation failure. |
 | FR-005 | Encode initial open, close, stop, and percentage commands compatibly with verified legacy packet rules. | Golden-byte tests cover supported motor/group commands; extensions are gated by separate capability and payload tests. |
 | FR-006 | In real mode use configured 4,800/8/odd/1 serial defaults and report serial failures safely; simulated mode must not access a serial port. | Backend-selection tests verify effective real settings, simulated no-port behavior, and safe HTTP/backend errors. |
-| FR-007 | Provide headless REST control and no static web UI or Socket.IO dependency. | API tests succeed; package/file inspection confirms no browser or Socket.IO assets. |
+| FR-007 | Serve the dependency-free responsive client from `static/` while retaining REST/WebSocket control and no jQuery, Socket.IO, external CDN, or front-end build dependency. | UI01 and package/asset inspection verify routes, content types, local assets, and excluded dependencies. |
 | FR-008 | Validate action targets and values before serial writes. | Invalid action/target/range tests return 4xx and assert zero writes. |
-| FR-009 | Support one-time, timestamp, cron, solar, and lunar schedules and optional weather conditions from JSON. | Deterministic clock/location tests verify next-event selection, data-source failure handling, and dispatch. |
-| FR-010 | Shut down cleanly. | Lifespan test verifies scheduler cancellation and serial close. |
+| FR-009 | Support one-time, timestamp, cron, solar, and lunar schedules and optional weather conditions from JSON, with due occurrences routed through `CurtainControl`. | Deterministic clock/location tests verify next-event selection, data-source failure handling, deduplication, and dispatch. |
+| FR-010 | Shut down cleanly in scheduler, controller, SDN, and backend ownership order. | Lifespan test verifies `CurtainControl` stops scheduling before controller/serial close. |
 | FR-011 | Load secrets only from the `--credentials` YAML file using safe YAML parsing and validated secret models. | Credential tests cover valid, missing, unreadable, malformed, and incomplete credential files and verify secrets are not logged or returned. |
-| FR-012 | Support optional Alexa directives through `AlexaInterface`, with all actions routed through `CurtainController`. | Tests verify directive mapping and confirm no direct SDN or serial calls are made by the Alexa adapter. |
+| FR-012 | Defer Alexa completely in this version while preserving a future adapter boundary at `CurtainControl.submit()`. | File, route, dependency, configuration, and credential inspection confirms no Alexa implementation or implied runtime support. |
 | FR-013 | Declare all direct runtime dependencies in `requirements.txt`. | A clean virtual environment can install the file and start the service with test configuration. |
 | FR-014 | Maintain reported state separately from active operation targets and verify operations from fresh SDN feedback. | State, response, and group tests demonstrate verified completion and timeout handling. |
-| FR-015 | Optionally retry a confirmed failed movement once; respect stop, faults, stale feedback, and superseding requests. End target enforcement when the operation ends. | Controller tests prove retry bounds and no corrective output after subsequent keypad movement. |
+| FR-015 | Bound controller operation retry; respect stop, faults, stale feedback, and superseding requests. End each controller operation independently while allowing `CurtainControl` to retain/reconcile its desired target under separate bounded policy. | Controller tests prove operation retry bounds; CC12–CC14 prove target adoption/correction, exhaustion, and absence of command loops. |
 | FR-016 | Publish live state and operation events through an authenticated WebSocket with snapshot resynchronization. | API/event tests demonstrate movement progression, reconnect recovery, and bounded subscriber queues. |
 | FR-017 | Preserve feedback receipt identity and per-field freshness, separate motor faults from communication failures, and verify using current coherent observations. | M06–M07, C12–C16, and A06 prove metadata, stop/group outcomes, stale-state transitions, and session recovery. |
 | FR-018 | Support explicit mock, simulated, and real-hardware backends with shared production protocol/controller code and no fallback. | R01–R02, SIM01–SIM10, and H01–H07 report backend, applicable outcomes, communication evidence, and cleanup. |
@@ -1122,26 +1589,88 @@ No LLM prompts or in-context-learning files are part of the runtime program. Imp
 | FR-020 | Record versioned raw TX/RX executions from both real and simulated backends at the common `SdnApi` boundary. | SIM07 and H07 validate ordered monotonic events, raw bytes/chunks, decoded annotations, initial/terminal state, provenance, completeness, and credential exclusion. |
 | FR-021 | Compare compatible real and simulated traces and score simulator fidelity from 0 to 1 using explicit sequence, wire, value, timing, and outcome components plus hard acceptance conditions. | SIM08–SIM10 and H07 verify preflight invalidation, formulas/weights/tolerances, reproducibility, mismatch reporting, thresholds, and a real baseline comparison. |
 
+| FR-022 | Provide `CurtainControl.submit(ControlIntent)` as the single application command entry for FastAPI, Somfy local-button intent, scheduler/environment occurrences, and reconciliation while preserving `CurtainController` as the sole SDN execution/actual-state owner. | Architecture inspection and CC01–CC18 verify allowed calls and prove adapters do not bypass the facade. |
+| FR-023 | Preserve Node-server manual web behavior in the bundled UI: open maps to up limit, close maps to down limit, and live verified state is published without optimistic actual state. | CC01–CC02, A01–A06, and UI03–UI06 verify mapping, validation, errors, one-press behavior, and live progression with zero writes for rejected requests. |
+| FR-024 | Execute fixed/five-field-cron and solar/twilight open/close/percentage rules using location, IANA timezone, signed offsets, explicit DST/missed-event behavior, and deterministic occurrence identity. | CC03–CC05 and CC16 verify cron, sunrise/sunset, all twilight levels, DST, polar/unavailable, grace, and duplicate cases with a virtual clock. |
+| FR-025 | Apply deterministic input priority, durable protection, coordinated atomic configuration reload, and application-owned controller -> control -> scheduler startup with reverse shutdown. | CC06–CC08 and CC10–CC11 verify arbitration, protection, reload rollback/no replay, no dependency cycle, lifecycle idempotency, and backend-independent decisions. |
+| FR-026 | Maintain a durable desired percentage for every curtain, versioned group intent/member targets, and truthful separately observed actual state. | CC09, CC13, configuration-schema tests, and snapshot/API tests verify supersession, group aggregation, and actual/target separation. |
+| FR-027 | Reconcile eligible actual/target mismatches through ordinary controller operations with freshness/tolerance/debounce checks, bounded retry/cooldown/deadline, and explicit unmet state after exhaustion. | CC13–CC14 prove correction, coalescing, failure suppression, recovery eligibility, and no infinite write loop. |
+| FR-028 | Interpret supported Somfy local-UI feedback as target-changing user intent only when no durable override/lock blocks it; never infer a button event from ambiguous movement. | CC12 verifies adoption, protected restoration, cause validation, settling, and zero false attribution. |
+| FR-029 | Atomically persist versioned targets, overrides, locks, handled-event keys, and retry state in a local non-SQL control-state file before related movement, then safely restore/reconcile after restart. | CC15 verifies ordering, atomic replacement, corruption/version/configuration mismatch handling, actual refresh, and no blind replay. |
+| FR-030 | Support moon-visible, weather, outside-temperature, and allowlisted environmental rules with typed units, freshness, edge semantics, hysteresis, debounce, cooldown, and fail-closed missing data. | CC16 and data-source tests verify calculations/observations, predicates, condition trees, provider failures, and single edge-triggered dispatch. |
+
+| FR-031 | Normalize web, scheduler/environment, Somfy-button, and reconciliation actions into one versioned/idempotent `ControlIntent` processed by `CurtainControl.submit()`; adapters contain translation only. | CC17 proves equivalent policy outcomes and dependency spies prove adapters never expand groups or call controller/SDN directly. |
+| FR-032 | Advertise and enforce per-motor/group capabilities, use internal `0=open`/`100=closed` consistently, and serve `ControlSnapshot` from cached state without I/O. | CC18 verifies capability intersection/rejection, endpoint conversion fixtures, no-I/O reads, and truthful desired/reported/delta views. |
+| FR-033 | Treat stop as a safety action that pauses reconciliation for the current target revision until authorized resume or a newer target, and report controller-observed actual state/health to all clients rather than optimistic desired state. | CC18, A02/A06, and UI05 verify pause/resume, no immediate restart, state/change times, reconnect, and unavailable health. |
+| FR-034 | Provide accessible one-press quick tiles with long-hold room detail navigation, room/group/curtain slider control, group editing, confirmed individual calibration, and schedule editing at mobile and desktop widths. | UI02–UI08 and API authorization/schema tests verify the complete interface, gesture separation, scoped navigation, and safety behavior. |
+
 ## Tests
+
+The tables in this section are a specification for tests to be implemented during a later code-generation phase; they are not executable tests in this iteration. Do not create test modules, fixtures, mock transports, simulator traces, browser automation, hardware profiles, or test data now, and do not run unit, integration, simulator, browser, or hardware test commands as part of this specification-only change. When implementation is separately authorized, every generated test shall use Arrange/Act/Assert structure and record its preconditions, initial state, triggering action (or explicitly ordered concurrent actions), observable behavior, expected final state, forbidden side effects, and cleanup result.
+
+All test IDs and expected results below are normative future acceptance criteria. A row marked for the future web interface or real hardware remains `not implemented` or `not run` until its required production feature and safe environment exist; it must never be represented as passing based only on this document.
+
+Unless a row overrides them, assume internal position `0=open` and `100=closed`, endpoint tolerance is 2%, clocks/random seeds/environmental observations are injected, the default backend is a byte-level mock, files use isolated temporary directories, no SQL or external network is available, and asynchronous work is awaited or advanced by a virtual clock. A partially open curtain is a fresh stopped position strictly between the endpoint tolerances. Simultaneous inputs are released from a test barrier with deterministic ordering. Real movement is prohibited without a validated rig profile and `--allow-motion`.
 
 ### Unit Tests
 
-- Perform named tests M01–M07, S01–S10, SIM01–SIM10, and C01–C16 from the SDN test table using the five-file organization; mock unit fixtures remain default and simulator cases use `SdnSim` with a virtual clock.
+| ID and test | Preconditions / assumptions | Initial state | Action performed | Expected behavior | Expected final state |
+|---|---|---|---|---|---|
+| UT-001 — Configuration/schema acceptance | Pydantic and generated JSON Schema use the same versioned fixture. | No configuration loaded. | Validate and construct the complete valid configuration. | Values normalize once; hexadecimal addresses preserve identity; no I/O occurs. | Immutable model equals the hand-authored expected configuration. |
+| UT-002 — Configuration rejection matrix | Each fixture has one fault: missing/extra field, duplicate identity, unknown group member, invalid timezone/location, malformed schedule/condition, or incompatible backend. | Valid configuration A is active. | Validate each invalid replacement. | Stable field-specific errors are returned; no partial replacement or SDN write occurs. | Configuration A remains active and byte-for-byte unchanged. |
+| UT-003 — Address and action boundaries | Valid range, action enum, and percentage rules are fixed. | No request/model exists. | Parse minimum/maximum, decimal/hex equivalents, zero, overflow, bool, fraction, unknown action, and percentages `-1/0/50/100/101`. | Valid inputs normalize; ambiguous or out-of-range inputs fail before persistence/transport. | Only valid typed requests exist; rejected cases have zero side effects. |
+| UT-004 — Golden SDN frames | Expected frames come independently from verified JavaScript/document/hardware evidence and use non-palindromic addresses. | Stateless encoder; empty fake transport. | Build open, close, stop, percentage, position-query, and status-query frames. | Command, length, device, address order/complement, DATA, and checksum exactly match fixtures. | Immutable bytes equal fixtures; invalid inputs produce no transport call. |
+| UT-005 — Parser fragmentation/recovery | Valid, corrupted, noisy, fragmented, coalesced, duplicate, and incomplete frame fixtures are available. | Empty bounded receive buffer; no waiter completed. | Feed every valid frame at every split, then corruption/noise followed by valid data. | Valid frames emit once; invalid candidates never become feedback; parser resynchronizes within bounds. | Buffer is empty or contains only the documented incomplete suffix; feedback order is exact. |
+| UT-006 — Partial/mixed state classification | Fresh stopped observations exist at `0`, `1`, `50`, `98`, `100`, plus mixed and offline groups. | No desired target or operation. | Produce motor/group snapshots and future UI status models. | Tolerance is consistent; `50` is partial; mixed remains mixed; unknown is never open/closed. | Reported values remain truthful and separate from desired values; zero commands. |
+| UT-007 — Partially open one-press rule | Manual quick-control policy enabled; no protection. | Target group is stopped at partial/mixed positions. | Normalize one quick-tile press. | Policy chooses close (`100`), creates one intent, and does not optimistically change actual state. | Desired is `100`; actual remains partial until feedback; exactly one controller submission. |
+| UT-008 — Simultaneous intent arbitration | Two intents use a deterministic barrier, source priority, and tie-break sequence. | Same motor stopped at `50`; no protection/operation. | Release overlapping group-close and member-open concurrently, then reverse arrival order. | Priority and revision rules select a deterministic winner; stale queued work is discarded. | One desired revision per motor; unaffected group members retain valid operations; no duplicate write. |
+| UT-009 — Conflicting schedules | Two rules have the same due instant, overlapping target, and stable IDs. | Curtain open; both occurrence keys unhandled. | Advance virtual clock through the collision. | Rules are ordered deterministically, both decisions are audited once, and actions cannot oscillate/replay. | One final desired target and at most one active plan remain; both keys are handled. |
+| UT-010 — Protection/reconciliation bounds | Valid lock/override, freshness, debounce, retry, cooldown, and deadline fixtures. | Desired/locked `100`; actual stopped at `50`. | Submit lower-priority intents and advance reconciliation through success, stall, stale, fault, and exhaustion. | Protection rejects mutations; eligible correction is bounded; stale/fault suppresses blind retry. | Target is satisfied or explicit `failed_unmet`; writes never exceed the configured bound. |
+| UT-011 — Atomic persistence/restart | Temporary repository supports injected write/rename failure; schema/fingerprint are controlled. | Valid revision N state; reported state is intentionally stale. | Commit N+1, fail N+2 at each stage, then load valid/corrupt/mismatched documents. | Atomic write preserves last complete version; policy restores safely; actual never restores as fresh. | Disk/in-memory contain complete N+1 or quarantined failure; no blind movement replay. |
+| UT-012 — Scheduler/data-source edges | Fixed timezone/location and hand-authored celestial/weather observations. | No due rule; caches have known freshness. | Evaluate cron/DST, solar/twilight, moon-visible, thresholds, hysteresis, stale/missing data, offsets, and deduplication. | Each eligible edge occurs once; missing/stale inputs fail closed; local celestial calculations survive weather failure. | Next occurrence and handled key match fixtures; unintended intent count is zero. |
+| UT-013 — Credentials/redaction | Restricted temporary YAML and sentinel secrets; safe loader injected. | No credentials loaded. | Load valid, malformed, unreadable, over-permissive, missing-required, and disabled-integration cases; serialize/log results. | Only declared secrets load; unsafe input fails; `SecretStr`, errors, traces, and responses redact values. | Consumers receive only their subset; sentinel is absent from every output. |
+| UT-014 — Simulator/fidelity determinism | Fixed seed, virtual clock, profile, trace pairs, and independently computed scores. | Simulated devices at declared positions; recorder empty. | Run movement/fault scenarios and compare compatible/incompatible traces. | State/timing are repeatable; preflight precedes scoring; expected score is not computed by code under test. | Trace matches fixture and score is exact `0..1`, or invalid comparison has reasons and no score. |
+| UT-015 — Future web contract | Run only after web implementation; before then report `not implemented`, never pass. | Future DOM has known inventory/snapshot; no request emitted. | Test icons/text, one press, 650 ms hold/cancel, scoped subgroups, slider, forms, keyboard, and responsive states. | Press/hold are exclusive; unknown state writes nothing; hold includes only the room, wholly contained subgroups, and members. | DOM/API calls match specification; actual state changes only from snapshot/events. |
+| UT-016 — Alexa exclusion | Alexa remains unauthorized/undefined. | Generated file, dependency, route, schema, and credential inventories exist. | Inspect all runtime surfaces. | No Alexa module, route, dependency, secret, or functional test exists; labeled future documentation may remain. | Runtime starts without Alexa and exposes no Alexa capability. |
+
+The following bullets are additional generation and coverage rules for the unit-test table:
+
+- Perform named tests M01–M07, S01–S10, SIM01–SIM10, C01–C16, CC01–CC18, and UI01–UI08 from the SDN, `CurtainControl`, and web tables using the seven-file organization; mock unit fixtures remain default and simulator cases use `SdnSim` with a virtual clock.
 - SDN frame golden tests for every supported action, including JavaScript-compatible source encoding, destination encoding, field inversion, payload, and checksum; call `SdnMsg` directly for boundary/error cases.
 - Address parsing tests for decimal, hexadecimal, boundaries, and invalid values.
 - Pydantic configuration tests for required fields, duplicate addresses/names, invalid group membership, malformed schedule, and invalid timezone/location.
+- Generate and validate JSON Schema for `DesiredTarget`, `GroupTarget`, `Protection`, `ControlIntent`, `CurtainCapabilities`, `ControlDecision`, `ControlSnapshot`, `EnvironmentalCondition`, `ScheduleRule`, and `ControlStateDocument`; reject unknown fields, naive timestamps, invalid units/operators, inconsistent revisions, and invalid condition-tree depth/size before state changes or writes.
 - Atomic JSON persistence tests using temporary directories.
 - Action validation tests proving invalid payloads cannot reach the transport.
-- Scheduler next-event tests with fixed time/location for cron, date, timestamp, sunrise, sunset, offsets, and past events.
+- Scheduler and `CurtainControl` tests with fixed clocks/locations and observations for cron, date, timestamp, sunrise/sunset, three twilight levels, moon visibility, weather/temperature/environment thresholds, offsets, past events, deduplication, input priority, durable overrides/locks, reconciliation, and atomic reload.
+- Atomic control-state persistence tests for write-before-move ordering, restart restoration, corruption, schema/configuration mismatch, retained handled-event keys, and truthful actual-state refresh.
 - Credential-loading tests using restricted temporary files, safe YAML parsing, redacted `SecretStr` values, and missing optional/required integration credentials.
 - Solar, lunar, weather-cache, stale-data, and unavailable-provider tests.
-- Alexa directive-to-controller mapping tests with no serial hardware.
+- When the interface is implemented, add static-client DOM/contract tests UI01–UI08. Independently inspect the current and future implementation to prove no Alexa module, routes, dependencies, credentials, or enabled configuration exist.
 - Simulator schema/state/timing/trace/scoring tests must use fixed seeds and hand-authored expected results; a comparator test may not calculate its expected score with the comparator under test.
 
 ### Integration Tests
 
+| ID and test | Preconditions / assumptions | Initial state | Action performed | Expected behavior | Expected final state |
+|---|---|---|---|---|---|
+| IT-001 — Startup and read API | Valid temp config, mock backend, authentication fixture, no network. | Process/backend stopped. | Enter FastAPI lifespan; call health/config/motors/groups/control-state; exit lifespan. | Components start/stop in ownership order; one backend opens; responses validate and redact secrets. | Service was ready; all tasks/backend are closed with no leaked waiter. |
+| IT-002 — REST action to wire | Independent golden frames and scripted feedback installed. | Motor freshly stopped open; no operation. | POST already-open, close, stop, percentage, and invalid actions. | Valid changes return 202/exact bytes; no-op is idempotent; invalid requests return 4xx and zero writes. | Accepted actions end only on verified feedback; rejected cases leave target/state unchanged. |
+| IT-003 — Partial-position workflow | Mock or simulator reports fresh stopped `50`; subscriber connected. | Desired/actual `50`; no operation. | POST close; deliver moving `70`, `90`, then stopped `100`. | Actual is not changed on acceptance; events follow feedback; completion requires coherent position/status. | Desired/actual `100`, convergence satisfied, ordered events contain each accepted observation. |
+| IT-004 — Concurrent API commands | Barrier-controlled requests have distinct idempotency keys and known priority. | Three-member group stopped at `50`. | Concurrently POST group close and member open; repeat both requests. | Member supersession affects only that motor; duplicate keys/repeated target do not add revisions or writes. | Selected member targets `0`, others `100`; operation and write counts match the winning plan. |
+| IT-005 — Conflicting scheduled/manual input | Two same-time rules and a manual request use an explicit release order. | Curtain open; occurrence keys unhandled. | Fire open/close rules, then release authenticated manual open. | All sources enter through `CurtainControl`; priority/revision decisions are deterministic, visible, and audited. | Manual open is final target; obsolete operations cancelled; schedule keys handled once. |
+| IT-006 — Snapshot, gap, and reconnect | Session/sequence IDs and bounded subscriber queues enabled. | Client holds snapshot sequence N; motor starts moving. | Send N+1/N+2, introduce a gap or overflow, reconnect, and fetch snapshot. | Gap/overflow forces resync; old-session/out-of-order events are ignored; controller continues. | Client equals current server snapshot with no duplicated or regressed state. |
+| IT-007 — Simulated full workflow | Simulated mode, fixed seed/profile, recording on; serial constructor spied. | Simulator open, curtain at `0`, trace empty. | Close curtain, poll through travel, verify, and shut down. | No serial probe; production codec/controller consumes raw simulated frames/timing. | Curtain stopped `100`; operation completed; trace and cleanup validate. |
+| IT-008 — Atomic config reload | Valid B, invalid C, and prepare/commit fault D fixtures exist. | Config A/rules active; future occurrence scheduled. | PUT B, then C, then fault D. | B commits coherently; obsolete occurrences cancel without replay; C/D preserve prior complete state. | B remains active/on disk; no partial C/D component, task, or write remains. |
+| IT-009 — Transport loss/recovery | Backend supports disconnect and new generation. | Close operation active at actual `60`. | Disconnect, issue request, deliver late old feedback, reconnect, and refresh queries. | Operation fails unavailable; safe 503 returned; old feedback rejected; fresh generation restores state. | Desired remains `100`; actual equals fresh query; no failed operation falsely completes/replays. |
+| IT-010 — Credentials through app | Restricted credentials with sentinel; log/API capture active. | App stopped. | Start with config/credentials; invoke enabled provider and read APIs. | Only intended adapter sees its secret; loader/redaction contract holds. | Service operates and sentinel is absent from logs, responses, state, and traces. |
+| IT-011 — Future static client | Run only after UI implementation; same-origin browser has no internet. | App ready with known room states. | Request `/`/assets; exercise mobile/desktop press, hold, slider, reconnect, and admin forms. | Correct assets/accessibility and REST/WS calls; no CDN; long-hold emits no action. | Browser equals server snapshot and only intended mutations occurred. |
+| IT-012 — Fidelity report | Approved real/sim traces share profile, requests, initial state, and scale. | Both traces validate and are immutable. | Compare them through production comparator. | Components, coverage, mismatches, hard conditions, and aggregate match hand-computed fixture. | Reproducible report; sources unchanged; invalid preflight has no score. |
+
+The following bullets are additional generation and coverage rules for the integration-test table:
+
 - Perform named API/live workflow tests A01–A06, communication tests R01–R02, and simulator tests SIM01–SIM10; select mocked fixtures by default, run simulated mode explicitly, and exercise actual serial communication only in real-hardware tests.
 - Start the FastAPI app with a temporary valid configuration and fake serial transport; verify `/health`, `/config`, `/motors`, and `/groups`.
+- Verify `/` and every referenced local static asset, exercise quick-tile/slider actions at mobile and desktop viewports, and verify live state/reconnect behavior without external network requests.
 - POST each supported `/actions` request and verify the exact frame captured by the fake transport.
 - Start the FastAPI app in simulated mode, assert that no serial constructor/probe occurs, run a complete movement/live-update workflow, and validate the resulting simulated trace.
 - Compare a fixed approved real trace with its fixed simulated trace and verify every fidelity component, overall score, coverage, and mismatch report.
@@ -1149,7 +1678,41 @@ No LLM prompts or in-context-learning files are part of the runtime program. Imp
 - Simulate transport open/write failure and verify structured 503 responses and continued API availability.
 - Start with `--config` and `--credentials`, verify enabled integrations receive only their validated credential subset, and verify API responses never expose credentials.
 
+### System-Wide Tests
+
+System-wide tests exercise policy, scheduling, persistence, controller, protocol, events, and the selected backend together in one process. Run them with `SdnSim` and a virtual clock by default. Hardware equivalents require the End-to-End preconditions.
+
+| ID and scenario | Input conditions | Preconditions / assumptions | Initial state | Action performed | Expected behavior | Expected outcome / final state |
+|---|---|---|---|---|---|---|
+| SW-001 — Autonomous correct-state no-op | Morning-open rule due; desired/actual `0`. | Scheduler enabled; fresh coherent feedback; no protection. | Entire group open/stopped; occurrence unhandled. | Advance clock through occurrence. | Record occurrence once, detect no delta, send no movement. | Desired/actual remain `0`; satisfied; zero movement writes; next event scheduled. |
+| SW-002 — Partial room one-press close | Member actual positions `0`, `50`, `100`; mixed-state click maps to close. | No lock/override; web intent or equivalent API fixture. | Group mixed; no active operation. | Perform one quick-tile press. | One group intent expands atomically; actual values remain until feedback; every member verifies separately. | Capable members end stopped `100`; group closed/satisfied or member-specific failure shown. |
+| SW-003 — Long-hold navigation safety | Pointer held 650 ms; room has two contained subgroups and one overlapping external group. | Web interface implemented and inventory valid. | No movement pending; room states mixed. | Hold/release tile, then select a member without applying movement. | Hold suppresses click/action and scopes detail to room, wholly contained subgroups, and members. | Desired/physical state unchanged; external overlapping group absent; selected detail ready. |
+| SW-004 — Simultaneous group/member commands | Same barrier releases group close and member open at equal manual priority. | Three-member group; deterministic tie-break/revisions. | All stopped at `50`; no protection. | Release both commands concurrently. | Deterministic order; member intent supersedes only that member; stale queued work discarded. | Member A ends `0`; B/C end `100`; one current revision per motor; no conflicting operation. |
+| SW-005 — Conflicting schedules | Rule A opens and B closes same group at same instant. | Stable IDs define ordering; no manual input/protection. | Group stopped `50`; keys unhandled. | Advance clock to collision. | Both decisions audited/handled once; ordering selects one target without oscillation/replay. | Deterministic winner is final target; at most one active plan; restart cannot replay either. |
+| SW-006 — Manual versus schedule | Scheduled close active at actual `60`; authenticated manual open arrives. | Manual priority exceeds schedule. | Desired `100`; close operation moving. | Submit manual open before completion. | New revision supersedes close; obsolete completion cannot overwrite target; reversal follows safety rules. | Curtain ends stopped `0`; manual revision current; schedule occurrence remains handled. |
+| SW-007 — Lock versus Somfy local input | Locked target `100`; valid local-button feedback opens curtain. | Cause metadata supported; one correction allowed. | Desired/actual `100`; lock active. | Inject local movement ending stopped `20`. | Actual immediately becomes `20`; target is not adopted; bounded reconciliation follows debounce. | Actual returns `100` or explicit `failed_unmet`; no infinite retry or hardware-lock claim. |
+| SW-008 — Environmental conflict/staleness | Temperature-close edge overlaps sunset-close; next weather sample stale. | Units, freshness, hysteresis, cooldown configured. | Curtain open; keys unhandled. | Cross temperature, cross sunset, then reevaluate stale weather. | Eligible rules each run once; duplicate target idempotent; stale value cannot retrigger or become zero. | Target remains closed; handled keys/cooldowns persist; next solar event exists. |
+| SW-009 — Mid-movement transport loss | Simulated close disconnects at `55`; old/new generation feedback available. | Blind retry disabled on disconnect. | Desired `100`; active operation; actual `55`. | Drop backend, send late old feedback, reconnect, query fresh state. | Operation fails unavailable; old frames ignored; API remains alive; new generation restores health. | Desired `100`; actual equals fresh query; not falsely complete; reconciliation follows bounded policy. |
+| SW-010 — Durable restart after conflict | Manual target superseded schedule; target/key committed before movement. | Atomic state valid; simulator restart policy fixed. | Desired `0`; last actual `40`; incomplete operation. | Restart and cross prior occurrence time. | Desired/keys restore; actual starts unknown/stale then refreshes; schedule does not replay. | Manual target remains; actual comes from fresh feedback; reconciliation revision is consistent. |
+| SW-011 — Reload during operation | Valid B removes group/changes rules; invalid C also supplied. | Prepare/commit and quarantine policies enabled. | Config A active; one member closing; client subscribed. | Reload B, then C while feedback arrives. | B commits coherently; feedback still updates physical state; removed refs quarantine; C rolls back. | B active/on disk; actual truthful; no C-owned task/write remains. |
+| SW-012 — Slow client with control | Client A stalls while B sends commands and scheduler polls. | Bounded queue and resync policy enabled. | Both clients at snapshot N; no operation. | Fill A queue; B sends close; movement completes. | A disconnect/resync cannot block B, scheduler, controller, or receive loop. | Motor closed; B sees ordered final event; A reconnects to identical current snapshot. |
+| SW-013 — Stop across sources | Scheduled close active; reconciliation queued; manual stop arrives. | Stop is highest safety priority. | Moving at `45`; desired `100`. | Submit stop, deliver late close feedback, advance reconciliation clock. | Stop dispatches first; active/queued movement cancels; late feedback only updates actual; reconcile pauses. | Truthful stopped position; target revision paused until authorized resume/new target. |
+| SW-014 — Shutdown under load | Scheduler due, query pending, subscribers connected, trace writer active. | Finite shutdown deadlines/instrumentation. | Running at partial position. | Trigger application shutdown. | Admission stops then scheduler/control/controller/query/recorder/backend close in ownership order. | No leaked tasks/waiters/post-close events or corrupt trace; actual is not fabricated. |
+
 ### End-to-End Tests
+
+| ID and test | Preconditions / assumptions | Initial state | Action performed | Expected behavior | Expected final state |
+|---|---|---|---|---|---|
+| E2E-001 / H02 — Read-only hardware | Dedicated adapter, validated allowlist/profile, scheduler/web writes disabled, no motion flag. | Service stopped; state unknown. | Start via production CLI/systemd, query position/status, stop. | Confirm 4800/8/O/1 and genuine addressed/checksummed replies; movement is impossible. | Fresh observed state; adapter closed; physical position unchanged; latency/capabilities recorded. |
+| E2E-002 / H01 — Feedback acceptance | Operator present; safe target/profile/capabilities verified. | Allowlisted motor stopped at recorded start. | Issue permitted small/limit movement and poll. | Direction, convention, response layout, and turnaround match profile. | Verified allowed target or explicit failure; no non-allowlisted write. |
+| E2E-003 / H03 — Partial movement/stop | Isolated non-production motor; `--allow-motion`; stop verified. | At safe endpoint. | Move, observe partial feedback, stop, query until stopped. | Live state shows partial/motion; stop wins; write alone never completes. | Physically stopped within range at fresh partial position; cleanup recorded. |
+| E2E-004 / H04 — Group verification | Group contains only allowlisted motors; operator confirms travel. | Every member stopped with captured state. | Move group and query each member. | One group command; individual verification; offline/partial failures explicit. | Complete only if every member verifies; otherwise truthful aggregate failure. |
+| E2E-005 / H05 — Interruption/recovery | Dedicated rig permits interruption; exclusive port ownership. | Healthy fresh stopped state. | Interrupt, attempt query/action, restore, refresh. | Offline/stale state; no blind movement retry; safe API; new generation rejects old data. | Fresh actual/health return; failed work is not completed or replayed. |
+| E2E-006 / H06 — Full live workflow | Authenticated REST/WS client; motion authorized; scheduler off. | Client snapshot current; motor stopped safely. | Submit movement and observe WebSocket to terminal state. | One request produces real SDN and feedback-derived progression without optimistic actual state. | API operation and physical motor share verified outcome; trace/event sequence complete. |
+| E2E-007 — Real scheduled event | Dedicated safe rig; one test rule; operator present. | Known stopped start; occurrence unhandled. | Start before due time and wait through occurrence. | Rule fires once through ordinary control path and cannot duplicate on reevaluation. | Target verified or explicitly failed; key persists; next occurrence correct; cleanup safe. |
+| E2E-008 / H07 — Real/simulator fidelity | Compatible approved trace/profile/seed; same requests/start; scale 1.0. | Real trace complete/immutable; simulator reset. | Replay in simulator and compare. | Report comparability, components, coverage, hard conditions, total, and mismatches independently. | Valid reproducible `0..1` report or invalid reasons with no score; source traces unchanged. |
+
+The following bullets are additional generation and safety rules for the end-to-end table:
 
 - Execute H01–H07 using the selected real-motor profile and required read-only/movement settings. Reuse shared behavior assertions across mock, simulated, and real backends where applicable; record unsupported/not-run/invalid-comparison cases separately from pass.
 - On a non-production test rig with a permitted RS-485 adapter, start using the systemd/CLI command and verify serial opening, one known-safe command transmission, and clean shutdown.
@@ -1159,33 +1722,35 @@ No LLM prompts or in-context-learning files are part of the runtime program. Imp
 
 ### Dependency-injected application services
 
-`main.py` shall construct the FastAPI application and the small set of support classes. Validated configuration selects `SerialInterface` for real mode or required `SdnSim` for simulated mode and supplies exactly that backend to `SdnApi`; tests may inject a fake backend and controllable clock. This permits the complete application to run without an RS-485 device while preventing ambiguous or accidental backend fallback.
+`main.py` shall construct and own the FastAPI application and component lifecycles. Validated configuration selects `SerialInterface` for real mode or required `SdnSim` for simulated mode and supplies exactly that backend to `SdnApi`; `SdnApi` is injected into `CurtainController`; the controller, inventory/policy, atomic state repository, and clock are injected into `CurtainControl`; `CurtainScheduler` receives rules, `DataSources`, and the `CurtainControl.submit` callback. Tests may inject a fake backend/controller, in-memory repository, environmental observations, and controllable clock. This one-way dependency graph prevents a scheduler/control cycle and permits the complete application to run without RS-485 hardware.
 
-Real communication tests inject the production serial adapter using a validated test rig profile; simulated runs inject production `SdnSim`; mocked tests inject only a byte-level fake. All execute the same `SdnApi`, controller, Pydantic validation, and FastAPI routes. No simulator or test-only success path may replace raw protocol decoding or state verification.
+Real communication tests inject the production serial adapter using a validated test rig profile; simulated runs inject production `SdnSim`; mocked tests inject only a byte-level fake. All execute the same `SdnApi`, controller, `CurtainControl`, Pydantic validation, and FastAPI routes. No simulator or test-only success path may replace raw protocol decoding or state verification.
 
 ### Local configuration boundary
 
-All configuration and credential file reads/writes occur through `config.py`. The rest of the application receives validated models rather than arbitrary dictionaries. This replaces the former MySQL pool and SQL CRUD endpoints.
+All system-configuration and credential file reads/writes occur through `config.py`. Durable operational control state uses the validated atomic repository defined for `CurtainControl`; no other module writes it. The rest of the application receives validated models rather than arbitrary dictionaries. These local files replace the former MySQL pool and SQL CRUD endpoints without treating observed motor position as configuration.
 
 ## Program Capabilities
 
-1. Control configured Somfy SDN motors and groups through RS-485.
+1. Manually control configured Somfy SDN motors and groups from the bundled mobile/desktop web client or REST API through RS-485.
 2. Report service health and configuration through HTTP.
 3. Update local configuration safely through HTTP.
-4. Run configured cron and solar schedules.
-5. Use solar, lunar, and optional weather data for autonomous decisions.
-6. Accept optional Alexa control without coupling Alexa to the SDN or serial implementation.
-7. Operate without the legacy browser UI, Socket.IO, or external SQL service.
+4. Autonomously open/close/move curtains using fixed/five-field-cron times and timezone-aware solar/twilight events, with durable deduplication and source-priority rules.
+5. Use solar, twilight, lunar/moon-visible, weather, outside-temperature, and allowlisted environmental data with freshness, hysteresis, debounce, and cooldown.
+6. Reserve a clean future adapter boundary while deliberately providing no Alexa implementation in this version.
+7. Serve a dependency-free responsive UI without the legacy jQuery pages, Socket.IO, or an external SQL service.
 8. Run the full control/monitoring workflow through a required stateful `SdnSim` without serial hardware.
 9. Record real and simulated raw SDN execution traces and calculate transparent simulator-fidelity scores from 0 to 1.
+10. Maintain durable per-curtain targets and versioned group intent, adopt permitted Somfy local-button positions, and reconcile physical mismatches with bounded retries.
+11. Protect targets with durable overrides and application policy locks without claiming unsupported SDN hardware locking.
 
 ## Issues
 
 ### Open Issues
 
-- Authentication/authorization and network exposure policy for the REST and Alexa endpoints have not been fully specified. Until defined, deployment must restrict network access and keep Alexa disabled.
+- Authentication/authorization and network exposure policy for the REST, WebSocket, and administrator web endpoints has not been fully specified. Until defined, deployment must restrict network access; group, schedule, and calibration mutations must not be exposed outside a trusted administrator context.
 - Actual position/status response layouts, position convention, group addressing, and device polling timing require verification against supplied Somfy documentation or hardware captures before hardware acceptance.
-- Jog, lock/unlock, count/incremental positioning, wink, and persistent desired-state enforcement are deferred extensions requiring separate specification and tests.
+- Jog, count/incremental positioning, wink, and **hardware SDN** network/local-UI lock commands are deferred extensions requiring profile resolution and separate hardware tests. Application policy locks are specified independently and send no SDN lock command.
 - The desired serial device path and production JSON configuration values must be supplied during deployment.
 - Real serial/motor acceptance remains unverified until the applicable H01–H07 cases run on a configured rig. Passing mock or simulator tests does not resolve these physical communication uncertainties.
 - Simulator timing and response calibration remain provisional until H07 produces valid comparisons against representative real captures for each supported motor/profile and operation. Passing simulator tests does not establish real-device fidelity.
@@ -1193,9 +1758,13 @@ All configuration and credential file reads/writes occur through `config.py`. Th
 ### Resolved Issues
 
 - External MySQL configuration and SQL CRUD are replaced by one local JSON configuration file passed with `--config`.
-- Browser pages, jQuery, static-file serving, and Socket.IO are excluded from the replacement service.
+- The legacy browser pages, jQuery, and Socket.IO are replaced by the dependency-free `static/` client using REST and the native WebSocket event stream.
+- Alexa is explicitly deferred: this version has no Alexa module, routes, dependencies, configuration, credentials, or acceptance claim.
 - The implementation is organized as `main.py` plus small, purpose-specific support classes rather than a large package hierarchy.
 - Runtime state, monitoring, verification, and optional single retry are owned by `CurtainController`; separate state-store/monitor/reconciler service classes are unnecessary initially.
+- Manual web/API actions and autonomous scheduled occurrences share the `CurtainControl` application facade; it owns source-aware policy while `CurtainController` retains SDN execution and state ownership.
+- Durable desired-state enforcement, group target expansion, Somfy local-button adoption, bounded reconciliation, application overrides/locks, and atomic non-SQL control-state recovery are owned by `CurtainControl`; actual physical state always remains controller-reported truth.
+- Autonomous rules cover five-field cron, sunrise/sunset, civil/nautical/astronomical twilight, moon-visible policy, weather, outside temperature, and allowlisted environmental sources with typed edge/freshness safeguards.
 - Group membership identifies the motors individually queried to verify a supported group command.
 - Secrets are separated from `config.json` into a restricted, root-owned `creds.yaml` file readable by the service group.
 - Communication health and per-field freshness are separate from reported motor motion/faults; received observations retain generation/sequence metadata for coherent verification and deduplication.
