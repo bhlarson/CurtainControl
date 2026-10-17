@@ -171,13 +171,7 @@ Use the Plan → Act → Critique → Revise (PACR) loop:
 
 For implementation, validate the independently usable sub-module and its executable public-interface examples, then its current browser/API integration. Run applicable regression cases for changed earlier contracts. Hardware acceptance remains subject to the explicit rig/profile requirements. Update the architecture diagrams and report when an implementation changes a contract. Do not delete unrelated or unreviewed code as part of phase isolation.
 
-## Program Generation Report
-
-Record authorized implementation iterations in curtain_control_implementation.md with date/request, selected phase, retained/adapted/replaced components, files changed, contract decisions, tests/evidence, failures, and deferred/not-run work. Do not equate fixtures or browser presentation with genuine device acceptance. Public examples link to their actual passing automated cases.
-
-**Specification alignment — 2026-10-17.** The active build has seven phases. CurtainControl web server/application begins in Phase 1; Controller arrives in Phase 3; SdnSim/Scheduler/WeatherSensor/Diagnostics Reporting are Phases 4/5/6/7. Real production-driver acceptance is required for Phases 1–3 alongside independent deterministic fake tests. Earlier diagnostic views remain available on demand through the active owner. HTTP commands/snapshots and authenticated WebSocket updates share one live-state contract with polling fallback. Scheduler delivers internal occurrences to Controller; WeatherSensor supplies observations and Controller decides actions. Expensive optional work is default-off; essential enabled control remains monitored/verified. Existing code/test IDs are retained for reuse; fidelity/learning remains deferred. This documentation revision runs only structural/content checks, not application, browser, provider, simulator, or hardware tests.
-
-**Overall-system foundation — 2026-10-17.** Added the common Description/Behavior/Interface/Validation/Design section before Phase 1, with stage-aware startup/settings, application interfaces, minimal configuration, file layout, dependencies, credential boundaries, and baseline acceptance cases. The seven-phase sequence and component ownership are unchanged. This revision changes only the specification; checks cover document structure/links/content, not executable application or hardware behavior.
+re behavior.
 
 ## Program
 
@@ -234,21 +228,13 @@ EX01–EX08 remain stable example IDs: EX01 covers transport and EX04 the applic
 
 This section defines the shared application foundation needed to implement all seven phases. It precedes Phase 1 and is not an additional development phase. Establish its application/configuration boundaries and complete the applicable baseline validation before accepting Phase 1; extend and revalidate the same foundation as each later component is attached. The file layout below is the target organization, not a claim that unimplemented files/features already exist.
 
-CurtainControl web server is the overall application and web interface, launched by main.py. It owns configuration/credential loading, application hosting/authentication, static assets, request handling, readiness, and application reporting access. CurtainController, introduced in Phase 3, provides system integration and control: it coordinates attached SDN, scheduling, weather observations, target/actual state, policy, persistence, and bounded recovery. WeatherSensor queries providers and publishes observations; only Controller determines curtain actions. Preserve these boundaries in every later phase.
+CurtainControl web server is a Python FastAPI web interface, launched by main.py. It publishes static HTML/js/CSS content from a /staic directory.  It owns configuration/credential loading, application hosting/authentication, static assets, request handling, readiness, and application reporting access. 
 
-Use a small flat Python project, local JSON configuration, optional restricted YAML credentials, and dependency-free browser assets. Do not require SQL, Node/npm, jQuery, Socket.IO, a frontend framework/CDN, or a runtime LLM. Keep existing reasonable implementations, independent fixtures, and tests for reuse. Later-phase source may remain in the repository without being imported or constructed by an earlier composition.
+Use a small flat Python project, local JSON configuration, and dependency-free browser assets.
 
 #### Behavior
 
-**Application bootstrap and ownership.** Resolve the requested configuration/profile, parse and validate configuration and only the credentials required by enabled features, construct the application, then start active owned components through a bounded lifecycle. Importing modules or constructing the application from validated models shall not open a port, issue provider requests, send movement, create operational/trace files, or start background tasks. main.py delegates application startup/shutdown to CurtainControl; Controller coordinates control-subsystem lifecycle once introduced. Before then, the application owns the isolated serial/protocol diagnostic component directly. Every resource has one owner; failed startup unwinds completed steps in reverse order, and repeated close cannot release borrowed resources twice.
-
-**Progressive configuration.** The selected composition profile identifies the implemented phase and explicitly enabled features. It is an application/bootstrap input supplied by the phase build or test, not a second persistent configuration store. Validate required fields against that profile: Phase 1 serial/server/web; Phase 2 SDN/inventory/profiles; Phase 3 Controller policy/state; Phase 4 simulation when selected; Phase 5 schedules/calendar; Phase 6 weather/location; Phase 7 diagnostic persistence/retention. Inactive sections may be retained for future use but cannot cause imports, filesystem probes, client construction, or missing-credential failures. Reject requests to enable an unimplemented component instead of silently ignoring them. Configured behavior never silently changes from real to simulated or mocked operation.
-
-**Configuration and operational state.** One UTF-8 JSON document passed with --config is the sole persistent source of non-secret application settings. Pydantic v2 models validate types, supported schema version, unknown active fields, ranges, references, and cross-field constraints before effects. CLI paths resolve from the invocation directory; paths stored inside configuration resolve from the configuration-file directory unless absolute. Schema defaults are documented; explicit validated configuration overrides defaults. No hidden environment or second configuration file overrides them. Keep credentials, operational control-state JSON, and raw/report files separate. Controller alone owns operational target/protection/handled-key writes; actual state is reconstructed from fresh SDN feedback rather than restored as truth. Update configuration/state with a same-directory temporary file, flush, and atomic replacement; validation/write/reload failure preserves the prior complete document and active owner configuration.
-
-**Secrets and access.** Load enabled authentication/provider secrets only from the explicit --credentials YAML file using yaml.safe_load and validated secret models. Require that path only when an enabled feature needs a secret; NWS itself requires no API key. Commit only creds.example.yaml placeholders and ignore populated credentials. Place production configuration/credentials under /etc/curtain-control; credentials are root-owned, group curtaincontrol, mode 0640 on the Raspberry Pi. Run the service as the dedicated curtaincontrol user. Keep service-writable operational/report state in separate configured directories. Do not copy secrets into JSON settings, examples, traces, API/WebSocket payloads, errors, logs, HTML, JavaScript, URLs, or browser storage. An enabled feature with missing/invalid credentials fails validation; inactive features require none. Authorization is enforced at the server for HTTP and WebSocket independently of visible controls; use an explicitly configured deployment access mode rather than an implicit authentication bypass.
-
-**Execution, observability, and optional work.** Use one asynchronous application loop; isolate blocking serial/file work from HTTP/WebSocket/stop/monitoring. One active transport owner serializes writes and owns reads. Supply injectable clocks, driver/client factories, repositories, and reporting sinks without changing production decoding or verification. Use timezone-aware wall time for records and monotonic time for timeouts. Basic errors/readiness and essential enabled control monitoring/verification stay active. Optional scheduling, weather refresh, simulation, verbose/raw diagnostics, and persistent report collection are disabled until explicitly selected; release optional work when its consumers stop without stopping shared required work. Report starting/ready/degraded/stopping or equivalent explicit component readiness; a health read itself causes no device/provider I/O.
+Empty web server with only the basic static content serving.
 
 #### Interface
 
@@ -258,34 +244,18 @@ Use a small flat Python project, local JSON configuration, optional restricted Y
 | load_config(path, profile) -> validated application/component settings | Read the one JSON source and validate the selected phase/feature requirements. No device/network access; probe writable destinations only when their owning component is active and needs them. Preserve existing loader code where its behavior satisfies this contract. |
 | load_credentials(path, required_features) -> secret models | Safe YAML loading, required-field/permission checks, redacted errors, and per-feature secret subsets. Optional absence is valid only when no active feature needs secrets. |
 | create_app(settings, credentials, profile, dependencies) -> application | Construct CurtainControl/FastAPI from validated inputs and explicit factories/borrowed resources. No implicit global singleton or import-time hardware/provider work. Keep public spelling compatible with reusable code where possible. |
-| application start()/close() | Start only active components, expose readiness after required initialization, reject new work during shutdown, and coordinate finite rollback/cleanup through declared ownership. |
-| component configuration/reload boundary | Pass immutable validated settings, not file paths/arbitrary dictionaries, into control components. The application validates/persists the candidate and Controller coordinates its affected runtime owners; failure leaves the old complete state active. |
-| shared clock, error, and model contracts | Typed exceptions become safe HTTP/startup errors; immutable validated snapshots/requests preserve identity/timestamps. Put genuinely shared primitives in a small models/clock helper without importing later implementations. |
+| log, and error handlings | Log messages and handle errors consistently across the application. Ensure that all errors are captured, logged, and reported in log files. |
 | initial application surface | GET /, /static/{path}, /health, and authorized current-phase diagnostics/configuration. WS /events provides only active channels with bounded subscription/snapshot behavior; future-phase endpoints are unavailable and cannot instantiate missing modules. |
-
-The following is a **minimal Phase 1 JSON example contract**. It deliberately omits SDN inventory, Controller state, site location, schedules, simulation, weather, and trace destinations. An active-profile validator must accept it once the foundation is implemented; the current full-system loader is a reuse candidate, not evidence of that acceptance. Supply the actual deployment adapter path. bearer mode requires valid auth secrets in the separate credential file, never in this JSON.
-
-```json
-{
-  "schema_version": 1,
-  "serial": {
-    "port": "/dev/ttyUSB0",
-    "baudrate": 4800,
-    "bytesize": 8,
-    "parity": "odd",
-    "stopbits": 1
-  },
-  "web": { "auth_mode": "bearer" }
-}
-```
+|Default configuration file| default configuration overridable with command line parameters /etc/curtain-control/config.json |
+|Default credentials file| default credentials file overridable with command line parameters /etc/curtain-control/creds.yaml |
+|Default log file| default log file overridable with command line parameters /etc/curtain-control/log.yaml |
 
 Launch contract (paths are deployment examples):
 
-```text
-python main.py --config /etc/curtain-control/config.json --credentials /etc/curtain-control/creds.yaml
+```cmd
+python main.py  /etc/curtain-control/config.json --credentials /etc/curtain-control/creds.yaml
 ```
 
-**Required executable example (BASE-EX01):** in an isolated temporary directory write the minimal configuration and test-only credentials; validate them against the Phase 1 composition; construct the real application using an injected driver factory and controllable clock; assert construction opens no port; enter its lifecycle, authenticate, request health/static/current diagnostics, and subscribe/unsubscribe to an active diagnostic channel; close and assert no leaked tasks/resources or future-phase imports. Cover missing credentials, malformed JSON, and startup failure without leaking sentinel secrets. BASE07 executes this example during implementation. It verifies the foundation without real hardware and does not replace SI06/EX01 real-driver acceptance. A documented example is not described as working until its linked test passes.
 
 For complete resource schemas, endpoint/status behavior, and deployment details, extend these shared contracts through [JSON Configuration](#json-configuration), [API Contract](#api-contract), [REST and Live State](#rest-and-live-state), [Pydantic Data Models](#pydantic-data-models), and [Program Environment](#program-environment). Later sections refine component behavior; they must preserve these common ownership, secret, and phase-isolation rules.
 
@@ -295,14 +265,10 @@ These are future implementation acceptance cases for the common foundation. Run 
 
 | Case | Required result |
 |---|---|
-| BASE01 — File/dependency boundary | Required current-phase modules/assets/examples exist; imports require no future module, SQL, Node, or external browser asset. A clean supported environment installs declared dependencies and imports the application without side effects. |
-| BASE02 — Phase-aware configuration | Minimal Phase 1 JSON validates without later sections; reject malformed/unsupported-version/invalid active settings and enabling unimplemented features. Inactive sections cannot create/probe destinations or open network/serial resources. |
-| BASE03 — Paths and atomic replacement | CLI/config-relative paths resolve deterministically; invalid replacements and injected write/reload failures preserve the last complete file and active configuration; configuration and operational state stay separate. |
-| BASE04 — Credentials and redaction | Safe YAML, required/optional feature rules, deployment permission checks, and secret subsets hold. Sentinel secrets appear nowhere in snapshots, HTTP/WS errors, logging, static files, or persisted non-secret records. |
-| BASE05 — Lifecycle/readiness | Construction is side-effect free; active owned components start once; partial-start failure and repeated close release resources in reverse order with finite deadlines and accurate readiness; borrowed resources are not double-closed. |
-| BASE06 — Access and feature demand | HTTP/WS enforce configured authorization; inactive endpoints/channels cannot activate future features; optional collection stops on unsubscribe while required control work remains active; read-only health/config causes no device I/O. |
-| BASE07 — Executable baseline example | Execute BASE-EX01 against production loader/application and injected dependencies, including failure paths; prove no hardware/provider activity and clean teardown. Record results explicitly rather than accepting the prose as proof. |
-| BASE08 — Phase extension regression | Attach each newly implemented module using the same interfaces/settings/ownership; retain existing web diagnostics and examples without importing or constructing still-future features. Source-of-truth models and API session/sequence rules remain consistent. |
+| CASE01 — File/dependency boundary | Required current-phase modules/assets/examples exist; imports require no future module, SQL, Node, or external browser asset. A clean supported environment installs declared dependencies and imports the application without side effects. |
+| CASE02 — Phase-aware configuration | Minimal Phase 1 JSON validates without later sections; reject malformed/unsupported-version/invalid active settings and enabling unimplemented features. Inactive sections cannot create/probe destinations or open network/serial resources. |
+| CASE03 — Paths and atomic replacement | CLI/config-relative paths resolve deterministically; invalid replacements and injected write/reload failures preserve the last complete file and active configuration; configuration and operational state stay separate. |
+| CASE04 — Executable baseline example | Execute CASE-EX01 against production loader/application and injected dependencies, including failure paths; prove no hardware/provider activity and clean teardown. Record results explicitly rather than accepting the prose as proof. |
 
 Acceptance records link these cases to FR-001–004, FR-007/010/011/013/016/035/039 and FR-041. An absent dependency/device or unimplemented phase is reported accurately; a baseline success does not imply protocol, movement, provider, or hardware acceptance. This specification-only update creates no executable tests and runs no application/device checks.
 
@@ -1837,7 +1803,6 @@ The active seven-phase runtime contains no LLM prompts or in-context-learning fi
 | Requirement ID | Requirement description | Requirement verification |
 |---|---|---|
 | FR-001 | Start only when `--config` identifies a readable, valid JSON file. | Missing, unreadable, malformed, and invalid-schema files cause a clear nonzero startup failure. |
-| FR-002 | Do not connect to or require MySQL, SQLite, or any external SQL database. | Dependency/configuration inspection and startup test show no database dependency or connection. |
 | FR-003 | Load motors, groups, SDN backend/serial/simulation/recording settings, location, and schedules from JSON. | Valid real and simulated fixtures are normalized and exposed safely through service/config APIs. |
 | FR-004 | Persist configuration changes atomically to the same JSON file. | Update test verifies valid replacement and preservation after write/validation failure. |
 | FR-005 | Encode initial open, close, stop, and percentage commands compatibly with verified legacy packet rules. | Golden-byte tests cover supported motor/group commands; extensions are gated by separate capability and payload tests. |
@@ -1876,13 +1841,13 @@ The active seven-phase runtime contains no LLM prompts or in-context-learning fi
 | FR-038 | Deferred: offline bounded simulator timing learning with disjoint held-out validation and versioned provenance. | FL01–FL04 and EX09 remain deferred, outside active acceptance. |
 | FR-039 | Retain serial/protocol/controller diagnostic views across upgrades using a single active I/O owner. Expensive collection is default-off/on-demand, while required control monitoring/verification/protection/error logging remain active. | DIAG01–DIAG04 and SI05 verify retention, ownership, demand cleanup, and no control bypass. |
 | FR-040 | Phase 2 device configuration covers application inventory/profiles/settings and explicitly verified read-only device information; physical programming writes require a separate enabled command specification/readback/hardware acceptance. | DC01–DC02 and API validation reject unsupported programming with zero device writes. |
-| FR-041 | Define and validate the shared overall-system foundation before Phase 1: file/dependency organization, stage-aware configuration, restricted secrets, application/component interfaces, and side-effect-free construction with bounded lifecycle. | BASE01–BASE08 and BASE-EX01 verify the foundation independently of later modules or hardware, without replacing phase acceptance. |
+| FR-041 | Define and validate the shared overall-system foundation before Phase 1: file/dependency organization, stage-aware configuration, restricted secrets, application/component interfaces, and side-effect-free construction with bounded lifecycle. | BASE01–BASE08 and CASE-EX01 verify the foundation independently of later modules or hardware, without replacing phase acceptance. |
 
 ## Tests
 
 The tables in this section are a specification for tests to be implemented during a later code-generation phase; they are not executable tests in this iteration. Do not create test modules, fixtures, mock transports, simulator traces, browser automation, hardware profiles, or test data now, and do not run unit, integration, simulator, browser, or hardware test commands as part of this specification-only change. When implementation is separately authorized, every generated test shall use Arrange/Act/Assert structure and record its preconditions, initial state, triggering action (or explicitly ordered concurrent actions), observable behavior, expected final state, forbidden side effects, and cleanup result.
 
-Shared-foundation cases BASE01–BASE08 and BASE-EX01 apply before/with Phase 1 and on subsequent integration changes. Active phase cases SI01–SI06, EX01–EX08, WS01–WS04, WDC01–WDC04, LOG01–LOG03, DIAG01–DIAG04, DC01–DC02, REC01–REC03, and the active IDs below are normative acceptance criteria. EX09, SIM08–SIM10, FL01–FL04, H07, FR-021, FR-038, and fidelity-specific system cases are explicitly deferred under Deferred Extensions. A row marked for the future web interface or real hardware remains `not implemented` or `not run` until its required production feature and safe environment exist; it must never be represented as passing based only on this document.
+Shared-foundation cases BASE01–BASE08 and CASE-EX01 apply before/with Phase 1 and on subsequent integration changes. Active phase cases SI01–SI06, EX01–EX08, WS01–WS04, WDC01–WDC04, LOG01–LOG03, DIAG01–DIAG04, DC01–DC02, REC01–REC03, and the active IDs below are normative acceptance criteria. EX09, SIM08–SIM10, FL01–FL04, H07, FR-021, FR-038, and fidelity-specific system cases are explicitly deferred under Deferred Extensions. A row marked for the future web interface or real hardware remains `not implemented` or `not run` until its required production feature and safe environment exist; it must never be represented as passing based only on this document.
 
 Unless a row overrides them, assume internal position `0=open` and `100=closed`, endpoint tolerance is 2%, clocks/random seeds/environmental observations are injected, isolated unit/fault cases default to a byte-level mock (phase acceptance separately requires real hardware for Phases 1–3), files use isolated temporary directories, no SQL or external network is available, and asynchronous work is awaited or advanced by a virtual clock. A partially open curtain is a fresh stopped position strictly between the endpoint tolerances. Simultaneous inputs are released from a test barrier with deterministic ordering. Real movement is prohibited without a validated rig profile and `--allow-motion`.
 
