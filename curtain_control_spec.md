@@ -10,7 +10,6 @@
     - [Existing-program review and migration requirements](#existing-program-review-and-migration-requirements)
 - [Specification Description](#specification-description)
 - [Program Generation Process](#program-generation-process)
-- [Program Generation Report](#program-generation-report)
 - [Program](#program)
   - [Program Description](#program-description)
   - [Development Phases](#development-phases)
@@ -73,7 +72,7 @@
     - [Command, Feedback, and Live-State Communication](#command-feedback-and-live-state-communication)
     - [API Contract](#api-contract)
     - [REST and Live State](#rest-and-live-state)
-    - [JSON Configuration](#json-configuration)
+    - [YAML Configuration](#yaml-configuration)
     - [Pydantic Data Models](#pydantic-data-models)
     - [System-Control Data Sources](#system-control-data-sources)
     - [Manual web control](#manual-web-control)
@@ -108,11 +107,13 @@
 
 `main.py` shall progressively replace the existing Node.js CurtainControl server with the seven-phase Python FastAPI service. The completed service operates Somfy SDN curtains through real RS-485 or SdnSim, preserves compatible device commands and serial settings, and supports scheduling. Earlier phases construct only their required components. A dependency-free static client begins with Phase 1 diagnostics and grows into the normal control/reporting interface.
 
-The service is started with the path to one JSON configuration file as a required command-line argument. That file is the sole persistent source of configuration; the program shall not require, connect to, or depend on an external SQL database. CurtainControl is the overall application and web server. Its FastAPI HTTP interface serves browsers, automation clients, and administration. CurtainController provides system integration and control, including authoritative target and actual state.
+The service loads config.yaml from its default path or an optional --config command-line override. That file is the sole persistent source of configuration; the program shall not require, connect to, or depend on an external SQL database. CurtainControl is the overall application and web server. Its FastAPI HTTP interface serves browsers, automation clients, and administration. CurtainController provides system integration and control, including authoritative target and actual state.
 
-Inputs are command-line options, JSON configuration, HTTP requests, time/celestial occurrences, timestamped weather updates, and raw backend bytes. Outputs are validated HTTP responses, SDN frames, truthful cached control snapshots, operational/decision/operation reports, optional raw recordings, and scheduling activity. Fidelity/learning reports belong to deferred extensions.
+Inputs are command-line options, YAML configuration, HTTP requests, time/celestial occurrences, timestamped weather updates, and raw backend bytes. Outputs are validated HTTP responses, SDN frames, truthful cached control snapshots, operational/decision/operation reports, optional raw recordings, and scheduling activity. Fidelity/learning reports belong to deferred extensions.
 
 ## Creator Interview
+
+The interview below is historical. References to JSON configuration are superseded by the current config.yaml requirement; quoted answers are retained as recorded.
 
 ### Creator Interview Transcripts
 
@@ -146,13 +147,13 @@ Inputs are command-line options, JSON configuration, HTTP requests, time/celesti
 
 | Instruction topic | Evidence / answer | Resulting specification |
 |---|---|---|
-| Purpose, inputs, outputs, and processing | The existing server handles SDN commands, serial I/O, configuration, and scheduling. | Implement a FastAPI service using local JSON configuration, an RS-485 transport, and a small static client. |
-| Storage | The creator requires a JSON file named at the command line and no external SQL database. | Load, validate, and atomically persist one local JSON configuration document; do not include a database driver. |
+| Purpose, inputs, outputs, and processing | The existing server handles SDN commands, serial I/O, configuration, and scheduling. | Implement a FastAPI service using local YAML configuration, an RS-485 transport, and a small static client. |
+| Storage | The current requirement is config.yaml with an optional command-line path override and no external SQL database. | Load, validate, and atomically persist one local YAML configuration document; do not include a database driver. |
 | User interface | The initial creator interview specified no interface; a later explicit request requires one. | Serve the new dependency-free responsive client from `static/`; do not carry forward jQuery, Socket.IO, or the legacy pages. |
 
 ## Specification Description
 
-This document directs future implementation and verification of `main.py`, its support modules, and the specified static client. It is the source of truth for the new Python service. The completed server shall provide stateless HTTP commands/snapshots, authenticated WebSocket updates with polling fallback, and responsive assets under static/. CurtainController owns all control state and weather decisions; WeatherSensor supplies observations only. Serving the legacy browser UI or using Socket.IO is prohibited. The current web-interface work is specification-only.
+This document directs future implementation and verification of `main.py`, its support modules, and the specified static client. It is the source of truth for the new Python service. The completed server shall provide stateless HTTP commands/snapshots, WebSocket updates with polling fallback, and responsive assets under static/. CurtainController owns all control state and weather decisions; WeatherSensor supplies observations only. Serving the legacy browser UI or using Socket.IO is prohibited. The current web-interface work is specification-only.
 
 When a requirement conflicts with undocumented legacy behavior, this specification takes precedence. The existing JavaScript source is reference material for compatible SDN commands and data fields, not for carrying forward defects.
 
@@ -166,12 +167,14 @@ Use the Plan → Act → Critique → Revise (PACR) loop:
 
 1. Plan the smallest change that satisfies the selected phase contract, its working examples, and acceptance cases. Inspect existing code/tests first and identify what can be retained, adapted, disconnected, or replaced.
 2. Act within the authorized scope. Preserve reasonable implementations, fixtures, schemas, and tests; rebuild integration wiring progressively rather than regenerating the whole program. A documentation-only request does not authorize code generation or device/network actions.
-3. Critique observable behavior against the phase's Description, Behavior, Interface, Validation, and Design. Check errors, resource cleanup, ownership, and dependencies on later phases.
+3. Critique observable behavior against the phase's Description, Behavior, Interface, Validation, and Design. Check errors, ordinary cleanup, and dependencies on later phases.
 4. Revise failures and rerun the affected checks. Report passed, failed, deferred, unsupported, and not-run separately; a future-phase placeholder is never a pass.
 
 For implementation, validate the independently usable sub-module and its executable public-interface examples, then its current browser/API integration. Run applicable regression cases for changed earlier contracts. Hardware acceptance remains subject to the explicit rig/profile requirements. Update the architecture diagrams and report when an implementation changes a contract. Do not delete unrelated or unreviewed code as part of phase isolation.
 
 re behavior.
+
+**Foundation decisions — 2026-10-17.** Follow the creator’s simplified Overall System Definition: config.yaml controls features; browser authentication is deferred; common representations are UTC timestamps and canonical SDN hex strings; composition profile is unchanged; startup logs and shuts down on failure, serving only on success; no resource-ownership mechanism; configuration enters only through startup file loading and the API. Preserve sub-module control behavior and the seven phases. This is a documentation-only revision.
 
 ## Program
 
@@ -181,7 +184,7 @@ The program is a long-running FastAPI process communicating with Somfy curtain m
 
 Quality attributes are reliability, maintainability, consistent performance, simple configuration, low maintenance, observable failures, and testability with and without hardware.
 
-CurtainControl web server is the overall application: it owns application startup/shutdown, configuration loading, HTTP hosting and authentication, web assets and views, request/response handling, application readiness, and reporting access. main.py is its process entry point. CurtainController provides the system integration and control functionality: it coordinates SDN, scheduling, weather updates, target/actual state, operations, policy/protection, persistence, and bounded reconciliation. The web server invokes Controller through its public interface and presents results. Stateless HTTP requests do not make the application or controller stateless.
+CurtainControl web server is the overall application: it owns application startup/shutdown, configuration loading, HTTP hosting, web assets and views, request/response handling, application readiness, and reporting access. main.py is its process entry point. CurtainController provides the system integration and control functionality: it coordinates SDN, scheduling, weather updates, target/actual state, operations, policy/protection, persistence, and bounded reconciliation. The web server invokes Controller through its public interface and presents results. Stateless HTTP requests do not make the application or controller stateless.
 
 WeatherSensor queries weather providers and publishes timestamped updates and health. CurtainController queries its HTTP observation interface through an injected client, validates freshness, and determines whether configured rules should change a target. WeatherSensor never decides a curtain action. Scheduler computes timed/celestial occurrences; Controller evaluates conditions and policy. The browser uses HTTP commands/snapshots and on-demand WebSocket updates with polling fallback; no browser session owns curtain state.
 
@@ -226,101 +229,92 @@ EX01–EX08 remain stable example IDs: EX01 covers transport and EX04 the applic
 
 #### Description
 
-This section defines the shared application foundation needed to implement all seven phases. It precedes Phase 1 and is not an additional development phase. Establish its application/configuration boundaries and complete the applicable baseline validation before accepting Phase 1; extend and revalidate the same foundation as each later component is attached. The file layout below is the target organization, not a claim that unimplemented files/features already exist.
+This section defines the shared foundation for the seven development phases. CurtainControl web server is the overall Python FastAPI application and web interface, launched by main.py. The initial system serves basic static HTML/JavaScript/CSS from static/ and loads settings, optional provider credentials, and logging. Later phases add their modules to this same application. CurtainController provides system integration and control from Phase 3; WeatherSensor supplies weather updates and Controller decides how to act on them.
 
-CurtainControl web server is a Python FastAPI web interface, launched by main.py. It publishes static HTML/js/CSS content from a /staic directory.  It owns configuration/credential loading, application hosting/authentication, static assets, request handling, readiness, and application reporting access. 
-
-Use a small flat Python project, local JSON configuration, and dependency-free browser assets.
+Use a small flat Python project, config.yaml for system settings and feature configuration, and dependency-free browser assets. Browser authentication is not implemented at this time. The application is used on the isolated device network; do not add login/session/token flows or a resource-ownership mechanism for this build.
 
 #### Behavior
 
-Empty web server with only the basic static content serving.
+At startup load config.yaml, any credentials required by enabled providers, and the log destination. Validate the settings required by the current composition profile and initialize the enabled functionality. If startup fails, log the error and shut down with a nonzero result; serve the application only after successful startup. If the file logger itself cannot start, report the failure to stderr and shut down. Later operational failures and control recovery are specified by their sub-modules.
+
+Features and their options are configured in config.yaml. Optional functionality defaults to disabled unless the file enables it. Startup must not require inactive modules, provider credentials, or recording/state destinations. The initial application does not connect to hardware or query weather; Phase 1 adds serial integration.
+
+Load system configuration from the YAML file at startup. During operation, configuration changes enter only through the API. API handlers validate the request, apply supported settings, and persist accepted configuration changes to the same config.yaml. Invalid requests or failed writes preserve the previous configuration. Do not add file watchers, a separate configuration-update service, or a generic reload protocol. Internal module methods may apply an API change; they are not additional configuration entry points. External edits to config.yaml are loaded on the next start.
+
+Use UTC timestamps in records, snapshots, logs, and API messages, serialized with an explicit UTC indicator (for example 2026-10-17T12:00:00Z). Normalize provider timestamp offsets to UTC. Standardize SDN addresses in configuration/API/display as quoted hexadecimal strings: 0x followed by six hexadecimal digits, emitted with uppercase digits (for example "0x0671E4"). Sub-modules define valid/reserved address values, wire encoding, control conventions, units, timing behavior, and other domain rules.
+
+Keep provider secrets separate in creds.yaml and out of config.yaml, source control, logs, static assets, and API/WebSocket responses. Load YAML safely and redact secret values from errors. No browser-authentication secret is required. Basic logging starts with the application; later phases specify device diagnostics, recording, and operational state. Ordinary start/close functions handle cleanup; no owned/borrowed-resource registry, lease, or reference-count ownership scheme is required.
 
 #### Interface
 
 | Shared interface | Contract |
 |---|---|
-| main(argv) / CLI | Require --config PATH. Accept --credentials PATH when selected features require secrets. Configuration/bootstrap failure returns a safe diagnostic and nonzero exit before motion. Implementation-specific host/port options, if provided, are documented transient overrides rather than another persistent settings source. |
-| load_config(path, profile) -> validated application/component settings | Read the one JSON source and validate the selected phase/feature requirements. No device/network access; probe writable destinations only when their owning component is active and needs them. Preserve existing loader code where its behavior satisfies this contract. |
-| load_credentials(path, required_features) -> secret models | Safe YAML loading, required-field/permission checks, redacted errors, and per-feature secret subsets. Optional absence is valid only when no active feature needs secrets. |
-| create_app(settings, credentials, profile, dependencies) -> application | Construct CurtainControl/FastAPI from validated inputs and explicit factories/borrowed resources. No implicit global singleton or import-time hardware/provider work. Keep public spelling compatible with reusable code where possible. |
-| log, and error handlings | Log messages and handle errors consistently across the application. Ensure that all errors are captured, logged, and reported in log files. |
-| initial application surface | GET /, /static/{path}, /health, and authorized current-phase diagnostics/configuration. WS /events provides only active channels with bounded subscription/snapshot behavior; future-phase endpoints are unavailable and cannot instantiate missing modules. |
-|Default configuration file| default configuration overridable with command line parameters /etc/curtain-control/config.json |
-|Default credentials file| default credentials file overridable with command line parameters /etc/curtain-control/creds.yaml |
-|Default log file| default log file overridable with command line parameters /etc/curtain-control/log.yaml |
+| main(argv) / CLI | Start using the default configuration, credentials, and log paths below. --config, --credentials, and --log-file override those paths. Feature settings remain in config.yaml. Log startup failure and exit; start the server on success. |
+| load_config(path, profile) -> validated settings | Safely load config.yaml and validate the applicable settings. Use the existing composition profile. Loading does not open devices or start providers. |
+| load_credentials(path) -> provider secret models | Load only credentials required by enabled providers. Missing credentials for an inactive feature are permitted; no browser login/token credentials are required. |
+| create_app(settings, dependencies=None) -> application | Construct the basic FastAPI/static application; allow injected test dependencies without requiring a resource-ownership mechanism. Attach later modules in their development phases. |
+| Startup configuration and API | Startup reads config.yaml. Runtime configuration reads/changes use the API and the same YAML file; no separate update mechanism. API JSON bodies and generated JSON Schema remain valid interfaces even though persistent settings are YAML. |
+| Logging/error handling | Record UTC messages consistently; redact secrets. A startup error is logged and terminates startup. Sub-modules specify runtime error/recovery behavior. |
+| Initial web surface | GET / serves the initial static page and /static/{path} serves assets. Later phases add health, diagnostic, control, HTTP, and WebSocket interfaces. Browser authentication is not part of current acceptance. |
+| Default configuration file | /etc/curtain-control/config.yaml; override with --config PATH. |
+| Default credentials file | /etc/curtain-control/creds.yaml; override with --credentials PATH when an enabled provider needs credentials. |
+| Default log file | /etc/curtain-control/log.yaml; override with --log-file PATH. This is a log destination, not another source of feature configuration. |
 
-Launch contract (paths are deployment examples):
+Launch example:
 
-```cmd
-python main.py  /etc/curtain-control/config.json --credentials /etc/curtain-control/creds.yaml
+```text
+python main.py --config /etc/curtain-control/config.yaml --credentials /etc/curtain-control/creds.yaml --log-file /etc/curtain-control/log.yaml
 ```
 
+The initial static-server configuration may omit later-module sections. Feature fields and their detailed schemas are added by the responsible sub-module; the single configuration-file boundary stays the same. See [YAML Configuration](#yaml-configuration), [API Contract](#api-contract), [REST and Live State](#rest-and-live-state), and [Program Environment](#program-environment) for details.
 
-For complete resource schemas, endpoint/status behavior, and deployment details, extend these shared contracts through [JSON Configuration](#json-configuration), [API Contract](#api-contract), [REST and Live State](#rest-and-live-state), [Pydantic Data Models](#pydantic-data-models), and [Program Environment](#program-environment). Later sections refine component behavior; they must preserve these common ownership, secret, and phase-isolation rules.
+**Required executable example (CASE-EX01):** write a minimal valid config.yaml in a temporary directory; construct/start the initial application with a temporary log path; request the static page/assets without login or credentials; confirm UTC log output and no device/provider activity; stop. Repeat with invalid YAML or an invalid enabled setting and confirm a logged startup error/nonzero shutdown. Inject a file-log initialization failure and verify stderr/termination. CASE04 tests this example during implementation; no application or device execution is claimed by the specification.
 
 #### Validation
 
-These are future implementation acceptance cases for the common foundation. Run applicable cases with Phase 1 and again when later integration changes their contract. Use temporary files, an injected driver/client/clock, and the production loader/application; no SQL, live provider, or serial device is required for these baseline checks. The separate phase-specific real-driver requirements remain mandatory.
-
 | Case | Required result |
 |---|---|
-| CASE01 — File/dependency boundary | Required current-phase modules/assets/examples exist; imports require no future module, SQL, Node, or external browser asset. A clean supported environment installs declared dependencies and imports the application without side effects. |
-| CASE02 — Phase-aware configuration | Minimal Phase 1 JSON validates without later sections; reject malformed/unsupported-version/invalid active settings and enabling unimplemented features. Inactive sections cannot create/probe destinations or open network/serial resources. |
-| CASE03 — Paths and atomic replacement | CLI/config-relative paths resolve deterministically; invalid replacements and injected write/reload failures preserve the last complete file and active configuration; configuration and operational state stay separate. |
-| CASE04 — Executable baseline example | Execute CASE-EX01 against production loader/application and injected dependencies, including failure paths; prove no hardware/provider activity and clean teardown. Record results explicitly rather than accepting the prose as proof. |
+| CASE01 — File/dependency boundary | The initial application imports and serves local static assets without future modules, hardware, provider requests, SQL, or a browser build step. |
+| CASE02 — YAML features and startup | The default/overridden config.yaml loads safely. Enabled features use file settings; inactive sections require no dependencies or provider secrets. Invalid configuration or enabled-component startup failure logs and terminates; successful startup serves the app. |
+| CASE03 — API/file configuration | Startup and API are the only configuration entry points. API changes validate and persist the same YAML document; invalid requests/writes preserve existing settings. External file edits require a new start. |
+| CASE04 — Executable baseline example | Execute CASE-EX01 with temporary files and no real hardware; verify static serving without authentication, UTC logs, success/failure startup, and basic stop behavior. |
+| CASE05 — Common conventions | Configuration/API/log examples use UTC timestamp values and canonical quoted SDN hex addresses; normalize provider offsets/hex case and reject decimal public address representations. Other conventions are tested by their sub-modules. |
 
-Acceptance records link these cases to FR-001–004, FR-007/010/011/013/016/035/039 and FR-041. An absent dependency/device or unimplemented phase is reported accurately; a baseline success does not imply protocol, movement, provider, or hardware acceptance. This specification-only update creates no executable tests and runs no application/device checks.
+These cases apply with the foundation and on later integration changes. They do not replace Phase 1–3 real-driver/device acceptance. Preserve existing phase-specific test IDs; CASE01–CASE05 define foundation acceptance.
 
 #### Design
 
-**Program file structure.** Keep the project flat and reuse existing files. Introduce the later modules only with their phase; preserved source may remain unused meanwhile. Named helper files below are logical homes and may be combined when that avoids duplication/cycles. Do not create a package hierarchy solely to match this outline.
+Keep the flat file structure and existing code suitable for reuse. main.py starts CurtainControl; config.py handles config.yaml and provider credentials; static/ contains the browser assets. SerialInterface, SdnApi, Controller, SdnSim, Scheduler, WeatherSensor, and reporting are added in their phases. Preserve a single active serial read/write path as defined by the transport/SDN sub-modules, without introducing a separate resource-ownership mechanism.
+
+```mermaid
+flowchart LR
+    Browser["Browser"] <-->|"HTTP"| Server["CurtainControl web server"]
+    Files["Configuration files<br/>config.yaml / optional creds.yaml"] -->|"Load at startup"| Server
+    Server -->|"Persist configuration API changes to config.yaml"| Files
+```
+
+The initial server serves the browser and loads configuration files. Later phases add their components to this foundation.
 
 ```text
 CurtainControl/
-  main.py                         # process entry and CurtainControl application/server
-  config.py                       # validated settings, credentials, file boundary
-  serial_interface.py             # Phase 1 byte transport
-  sdn_api.py                      # Phase 2 protocol/parser/query coordination
-  controller.py                   # Phase 3 system integration, control, operational state
-  sdn_sim.py                      # Phase 4 raw-byte simulator; optional capture helpers
-  scheduler.py                    # Phase 5 occurrence calculation and Controller callback
-  data_sources.py                 # reusable calendar/provider helpers as phases need them
-  weather_schema.py               # Phase 6 provider/observation models
-  curtain_control.py              # optional application/server helpers, not another controller
-  models.py / clock.py            # optional small genuinely shared contracts/helpers
-  reporting.py                    # optional Phase 7 diagnostics/reporting helper
+  main.py
+  config.py
+  config.example.yaml
+  creds.example.yaml
   static/html/index.html
   static/css/app.css
   static/js/app.js
-  requirements.txt                # direct runtime dependencies
-  requirements-dev.txt            # test/documentation dependencies
-  config.example.json             # valid current-stage non-secret example
-  creds.example.yaml              # credential placeholders only
-  tests/                         # phase-isolated cases, helpers, independent fixtures
-  docs/                          # deployment notes, diagrams, evidence references
+  requirements.txt
+  requirements-dev.txt
+  tests/
   curtain_control_spec.md
   curtain_control_implementation.md
   .gitignore
 ```
 
-Populated config.json/creds.yaml, operational control-state files, recordings, and generated reports are deployment/runtime data rather than source templates; exclude secret-bearing/local runtime data from version control. Production state may live under /var/lib/curtain-control and logs under a configured service-writable destination. Paths are explicit; never overwrite credentials or configuration with runtime state. Legacy JavaScript is compatibility/reference material and is not a runtime dependency.
+The complete later-module layout is in [Program Structure](#program-structure). Keep populated config.yaml/creds.yaml and local runtime logs/state out of source templates. Operational control-state/trace JSON formats remain sub-module concerns; changing system configuration to YAML does not change their formats.
 
-**Dependencies and environment.** Use Python 3.11+ and Pydantic v2 as already specified. Keep direct runtime dependencies in requirements.txt and verification tools in requirements-dev.txt; add a package when its phase first needs it and record tested compatibility/constraints. The completed-project manifest may include future-phase packages, but an early module must not eagerly import their implementations. Use an isolated virtual environment. Browser assets require no build process.
-
-| Availability | Dependencies / purpose |
-|---|---|
-| Foundation and Phase 1 | fastapi, uvicorn[standard], pydantic, pyserial, PyYAML for the application/HTTP/WS host, validation, real driver, and restricted credentials. |
-| Shared platform support | tzdata on Windows when IANA timezone data is needed; asyncio, JSON/path/logging/atomic-file facilities use Python's standard library. |
-| Phase 2–4 | Reuse the above libraries and standard library for codec/controller/simulation; recording hooks do not require another subsystem to be constructed. |
-| Phase 5 | croniter, astral, ephem for configured time/celestial calculation. |
-| Phase 6 | httpx for asynchronous WeatherSensor/provider integration; tests inject HTTP responses. |
-| Phase 7 | Standard logging/JSON and existing validation for diagnostics/recording; extra libraries require an explicit justified dependency update. |
-| Development | pytest, pytest-asyncio, jsonschema and any explicitly selected documentation/graph tools; none are required in the production control loop. |
-
-The startup/composition layer selects validated settings and factories before importing/constructing phase implementations. Application HTTP/web concerns depend on public Controller contracts once available; Controller coordinates control components, Scheduler supplies internal occurrences, WeatherSensor supplies observations, and SdnApi alone owns backend byte I/O. Small injected clocks/repositories/sinks make these boundaries independently verifiable. Keep dependencies one-way and prohibit shared mutable state ownership between application, controller, simulator, and browser.
-
-All seven phase definitions below build on this foundation and retain their own Description, Behavior, Interface, Validation, and Design. The detailed [Application Integration](#application-integration) section supplies cross-component flows and complete-system refinements rather than requiring later features to exist before Phase 1.
+Use the existing declared Python/FastAPI/Pydantic/PyYAML dependencies and plain browser assets. Add serial, scheduling, provider, and reporting dependencies as their phases require them; do not introduce a browser-authentication dependency. Provider secrets remain in restricted creds.yaml as described in [Program Environment](#program-environment). Keep dependency and file-layout details single-sourced in those later sections rather than repeating another framework here.
 
 ### Phase 1: Serial/RS485 Interface / web server / web client
 
@@ -328,7 +322,7 @@ All seven phase definitions below build on this foundation and retain their own 
 
 `SerialInterface` in `serial_interface.py` provides asynchronous RS-485 byte transport independently of SDN commands, motor inventory, application policy, and web components. Receive validated serial settings and an optional driver factory by injection; read no application configuration files.
 
-CurtainControl web server is the overall application and web interface, started by main.py. It owns HTTP hosting, authentication/authorization, web asset delivery and navigation, configuration loading/persistence, application lifecycle/readiness, diagnostics, reporting access, and handling browser/REST requests and presenting Scheduler configuration/results. CurtainController supplies its system integration and control functionality. The web server constructs or receives the controller, starts/stops it through its lifecycle interface, and presents its results. Application/server code may live in main.py and purpose-specific helpers, including curtain_control.py when useful. Controller remains the single owner of operational targets, observations, policy, and control-state persistence.
+CurtainControl web server is the overall application and web interface, started by main.py. It owns HTTP hosting, web asset delivery and navigation, configuration loading/persistence, application lifecycle/readiness, diagnostics, reporting access, and handling browser/REST requests and presenting Scheduler configuration/results. CurtainController supplies its system integration and control functionality. The web server constructs or receives the controller, starts/stops it through its lifecycle interface, and presents its results. Application/server code may live in main.py and purpose-specific helpers, including curtain_control.py when useful. Controller remains the single owner of operational targets, observations, policy, and control-state persistence.
 
 The web server and diagnostic client are introduced here and extended in every later phase. Controller-dependent APIs are installed when Controller arrives in Phase 3; Phase 1 must start without importing it or other future components.
 
@@ -342,7 +336,7 @@ Writes shall preserve byte order and report short/failed writes. Reads may retur
 
 ##### Application and web behavior
 
-Authenticate/authorize each request, validate its schema, normalize open/close to 0/100 and external units at the boundary, attach source/actor/idempotency metadata, and delegate once. The controller resolves group membership, decides priority/protection, persists targets, and verifies movement. Preserve caller idempotency/precondition keys across repeated HTTP requests. Return an accepted decision and operation ID promptly; do not wait for full travel in the request handler. All state reads return controller-owned cached snapshots with authorization/redaction applied.
+Validate each request schema, normalize open/close to 0/100 and external units at the boundary, attach source/actor/idempotency metadata, and delegate once. The controller resolves group membership, decides priority/protection, persists targets, and verifies movement. Preserve caller idempotency/precondition keys across repeated HTTP requests. Return an accepted decision and operation ID promptly; do not wait for full travel in the request handler. All state reads return controller-owned cached snapshots with redaction applied.
 
 For each active component the browser obtains its cached HTTP snapshot, subscribes to WS /events for live updates, and uses bounded HTTP polling as fallback. Control snapshots/operation routes become available with Controller in Phase 3. Display actual/desired/freshness distinctly and retain a last-known snapshot labeled unavailable during errors. A reconnect or session change fetches a complete snapshot; older session/revision responses cannot replace newer state. No state-dependent toggle is sent from unknown/offline data. Use the shared HTTP/WebSocket live-state contract: commands via HTTP, cached initial/recovery snapshots via HTTP, live updates via WS /events, and polling fallback.
 
@@ -370,11 +364,11 @@ The same open/read/write/close contract shall be implementable by a byte fake an
 | Override/lock/reconcile routes | Authenticate administration and call the corresponding controller policy method. |
 | State and operation GET routes | Return redacted Controller snapshot/operation data without serial or weather queries. |
 | Configuration, groups, and schedules | The application validates/persists configuration and calls Controller.reload to coordinate control-system changes; handlers never mutate controller internals. |
-| Weather/log/report reads | Return the authorized cached observations or bounded reporting results of their owning components. |
+| Weather/log/report reads | Return the cached observations or bounded reporting results of their owning components. |
 
 See API Contract for concrete routes and statuses. From Phase 3, normal movement/policy handlers call Controller only and never alter its models/private dictionaries. Phase 1/2 diagnostics use their active module interface; retained diagnostics share the current owner and never create a competing serial reader/writer. HTTP statelessness applies to transport requests; authoritative control state stays in Controller once integrated in Phase 3. Earlier diagnostics own only bounded transport/server observations.
 
-**Required executable example (EX04):** in Phase 1 start the production CurtainControl web server with only SerialInterface, verify authentication/static assets/readiness/serial diagnostics/live updates, disable optional collection when unused, and shut down cleanly. In Phase 3 extend this same example with Controller: submit an authenticated idempotent target, inspect decision/operation identity, receive feedback-derived WebSocket progression, recover from reconnect using an HTTP snapshot, and repeat the key without another movement. Verify invalid/unauthorized input, redaction, and safe errors. Keep separate deterministic and explicitly configured real-driver runs; record which portions are applicable by phase.
+**Required executable example (EX04):** in Phase 1 start the production CurtainControl web server with only SerialInterface, verify static assets/readiness/serial diagnostics/live updates, disable optional collection when unused, and shut down cleanly. In Phase 3 extend this same example with Controller: submit an idempotent target, inspect decision/operation identity, receive feedback-derived WebSocket progression, recover from reconnect using an HTTP snapshot, and repeat the key without another movement. Verify invalid input, redaction, and safe errors. Keep separate deterministic and explicitly configured real-driver runs; record which portions are applicable by phase.
 
 **Web-client integration:** Phase 1 delivers server/serial diagnostics. From Phase 3 extend the same application with room/group/curtain tiles, position controls, targets/actual/convergence, protection, stop/resume, and WebSocket/polling/error displays. Retain the shared Manual web control and Web Interface requirements; all policy originates in Controller.
 
@@ -392,20 +386,20 @@ S10 and read-only hardware case H02 subsequently verify this contract within Sdn
 
 | Name | Test description | Interface tested |
 |---|---|---|
-| SI05 — Browser diagnostics | Open/close the Phase 1 driver through authorized routes; inspect exact buffered chunks/timestamps and WebSocket updates with polling fallback; invalid input writes nothing. Retain the page later using active SDN/Controller ownership. | Production assets, transport/SDN hooks, WS /events and HTTP |
+| SI05 — Browser diagnostics | Open/close the Phase 1 driver through routes; inspect exact buffered chunks/timestamps and WebSocket updates with polling fallback; invalid input writes nothing. Retain the page later using active SDN/Controller ownership. | Production assets, transport/SDN hooks, WS /events and HTTP |
 | SI06 — Real serial acceptance | Open the production adapter with a validated read-only rig; send an approved safe fixture, record genuine received chunks/effective settings, test finite cleanup, and retain captured evidence. No mock fallback may pass this case. | SerialInterface / production driver and rig |
 
 ##### Application and web validation
 
-CC01/CC02 verify request normalization, authorization, and safe errors; CC17 verifies source adapter equivalence; CC18 verifies cached reads and stop/resume. A01–A06 verify HTTP requests, WebSocket delivery/recovery, and polling fallback. UI01–UI07 exercise production assets/routes. Use production Controller for integrated policy assertions: real SDN/rig for Phase 3 acceptance, and an injected SDN fake for isolated repeatable faults. Adapter-only tests may use a controller spy. Phase 1 has no Controller dependency.
+CC01/CC02 verify request normalization, validation, and safe errors; CC17 verifies source adapter equivalence; CC18 verifies cached reads and stop/resume. A01–A06 verify HTTP requests, WebSocket delivery/recovery, and polling fallback. UI01–UI07 exercise production assets/routes. Use production Controller for integrated policy assertions: real SDN/rig for Phase 3 acceptance, and an injected SDN fake for isolated repeatable faults. Adapter-only tests may use a controller spy. Phase 1 has no Controller dependency.
 
-Phase 1 acceptance covers actual serial transport, web startup/readiness/authentication/assets, live serial diagnostics, error handling, and cleanup. Controller/action/policy parts of EX04, CC01–CC18, A01–A06, and UI03–UI08 become applicable in Phase 3 or their owning later phase; they do not require a placeholder controller in Phase 1. SI06 is required hardware evidence; fake-driver SI01–SI05 cases remain deterministic unit/integration checks.
+Phase 1 acceptance covers actual serial transport, web startup/readiness/assets, live serial diagnostics, error handling, and cleanup. Controller/action/policy parts of EX04, CC01–CC18, A01–A06, and UI03–UI08 become applicable in Phase 3 or their owning later phase; they do not require a placeholder controller in Phase 1. SI06 is required hardware evidence; fake-driver SI01–SI05 cases remain deterministic unit/integration checks.
 
 #### Design
 
 Keep one driver handle and one write-serialization lock in the transport. Isolate blocking pyserial operations from asynchronous callers. The transport has no dependency on SdnApi, controller classes, the scheduler, or FastAPI.
 
-Organize CurtainControl as the application/web-server layer, with main.py as its executable entry point and helpers for configuration, hosting/authentication, routes, static views, diagnostics, and reporting. The application calls Controller.start/close/reload for control-system integration and supplies validated settings/dependencies; Controller coordinates its attached SDN, scheduler, weather, repository, and control tasks. Retain useful existing application and component code. Keep request normalization and safe response serialization in the web server, and operational policy/state in Controller. Use clear interfaces within one process unless an external service is explicitly configured.
+Organize CurtainControl as the application/web-server layer, with main.py as its executable entry point and helpers for configuration, hosting, routes, static views, diagnostics, and reporting. The application calls Controller.start/close/reload for control-system integration and supplies validated settings/dependencies; Controller coordinates its attached SDN, scheduler, weather, repository, and control tasks. Retain useful existing application and component code. Keep request normalization and safe response serialization in the web server, and operational policy/state in Controller. Use clear interfaces within one process unless an external service is explicitly configured.
 
 ##### Design references and adopted patterns
 
@@ -541,7 +535,7 @@ The resulting migration rule is intentionally narrow: `SdnMsg` reproduces JavaSc
 | Legacy/unverified | `GET_LOCK` / `SET_LOCK` | `0x4B` / `0x5B` | Node `SET_LOCK` sends function (`00` lock current, `05` unlock), reserved, priority. | Expected legacy lock status/ACK behavior is not fully defined by the supplied ST30 tables. Newer SDN defines network lock as `SET 0x16`, `GET 0x26`, `POST 0x36`. | Used by Node helpers but conflicts with newer documented IDs; disable until verified against installed hardware/profile. |
 | Legacy/unverified | Network error/status constants | `0x5D` / `0x5E` | Not defined by the supplied ST30 command tables used here. | Unknown. | Node enum contains misspelled/error/status names without helpers; do not implement without authoritative device documentation. |
 
-The table distinguishes the older ST30/Sonesse profile used by the repository from newer general SDN revisions where names, payload extensions, or configuration command IDs differ. `config.json` shall declare a motor protocol profile/capabilities; code must not select a conflicting payload solely from the Node enum. Initial code generation implements only the rows marked required/included. Every additional row requires an independent golden request/response fixture and either document or real-hardware acceptance evidence.
+The table distinguishes the older ST30/Sonesse profile used by the repository from newer general SDN revisions where names, payload extensions, or configuration command IDs differ. `config.yaml` shall declare a motor protocol profile/capabilities; code must not select a conflicting payload solely from the Node enum. Initial code generation implements only the rows marked required/included. Every additional row requires an independent golden request/response fixture and either document or real-hardware acceptance evidence.
 
 The selected mode is immutable for the lifetime of an `SdnApi` instance. Changing modes requires orderly shutdown and construction of a new instance with a new connection generation. `SdnApi` shall never write a request to real and simulated backends simultaneously. Fidelity reproduction is a separate simulated execution using the recorded real trace as comparison input, preventing simulator work from delaying or altering live RS-485 communication.
 
@@ -731,14 +725,14 @@ A group target expands atomically to one target revision per current member. Lat
 
 ##### Input priority, durable overrides, and locks
 
-The default priority from highest to lowest is: safety `stop`; authenticated lock/override management; authenticated web target; verified Somfy local-button terminal position; scheduled/environmental target; background reconciliation of the current target. A later intent at the same priority supersedes an earlier overlapping intent. Configuration may disable a source but may not raise automation above a safety stop or active durable override/lock.
+The default priority from highest to lowest is: safety `stop`; lock/override management; web target; verified Somfy local-button terminal position; scheduled/environmental target; background reconciliation of the current target. A later intent at the same priority supersedes an earlier overlapping intent. Configuration may disable a source but may not raise automation above a safety stop or active durable override/lock.
 
-- A durable override fixes the desired target (or holds the freshly observed current position) across schedule events, environmental changes, configuration reload, service restart, and local-button input. An authorized web request may explicitly replace or clear it; an ordinary web target request cannot silently do so.
-- An application policy lock freezes the protected desired target and rejects target-changing input from every source except an authorized unlock/lock-replacement request. `stop` remains permitted. If a local button physically moves an unlocked-at-hardware motor, actual state remains truthful and bounded reconciliation may restore the locked target after movement settles.
+- A durable override fixes the desired target (or holds the freshly observed current position) across schedule events, environmental changes, configuration reload, service restart, and local-button input. An explicit web request may explicitly replace or clear it; an ordinary web target request cannot silently do so.
+- An application policy lock freezes the protected desired target and rejects target-changing input from every source except an explicit unlock/lock-replacement request. `stop` remains permitted. If a local button physically moves an unlocked-at-hardware motor, actual state remains truthful and bounded reconciliation may restore the locked target after movement settles.
 - With neither override nor lock active, a verified Somfy local-button movement becomes user intent: after fresh stopped feedback, its terminal position becomes the new durable target so the service does not fight the user. Movement lacking a supported `local UI` cause updates actual state but is not automatically attributed to a button.
 - Hardware network/local-UI locking is not implied by a `Protection` in `policy_lock` mode. It remains disabled until the installed ST30 profile, command family, acknowledgments, and safe hardware tests resolve the protocol conflicts documented in the SDN section.
 
-Expired override/lock records are cleared atomically before evaluating a new intent. Group overrides/locks expand to members, and the effective member policy records its originating group and revision. Conflicting overlapping records are rejected unless an authorized replacement explicitly identifies the records it supersedes.
+Expired override/lock records are cleared atomically before evaluating a new intent. Group overrides/locks expand to members, and the effective member policy records its originating group and revision. Conflicting overlapping records are rejected unless an explicit replacement explicitly identifies the records it supersedes.
 
 ##### Target reconciliation
 
@@ -751,7 +745,7 @@ Controller updates delta after applying observations/operation outcomes and also
 5. The motor has no blocking fault, communication-unavailable state, active stop, or retry-exhaustion record for that target revision.
 6. The configured retry limit, minimum retry interval, and total reconciliation deadline permit another attempt.
 
-Each correction is a normal revisioned `CurtainController` operation. Success marks the target satisfied. A verified stopped mismatch may retry only within configured bounds. Transport failure, stale/unknown feedback, blocked/locked motor feedback, or retry exhaustion records an explicit unmet reason and suppresses further automatic writes for that target revision until fresh recovery evidence, an authorized retry/reset, or a newer target revision makes another attempt eligible. This prevents an endless motor-command loop.
+Each correction is a normal revisioned `CurtainController` operation. Success marks the target satisfied. A verified stopped mismatch may retry only within configured bounds. Transport failure, stale/unknown feedback, blocked/locked motor feedback, or retry exhaustion records an explicit unmet reason and suppresses further automatic writes for that target revision until fresh recovery evidence, an explicit retry/reset, or a newer target revision makes another attempt eligible. This prevents an endless motor-command loop.
 
 Open/close/group commands may use the proven limit operations. Intermediate percentages use the verified percentage command. The control layer shall not convert a percentage into undocumented raw counts. Reconciliation decisions, operations, observations, retries, and terminal outcomes update cached snapshots and correlated reporting records.
 
@@ -764,12 +758,12 @@ Accepted target/override/lock changes must be durably written before the corresp
 ##### Conflict, safety, and lifecycle rules
 
 1. Safety stop is always accepted for an addressable motor. It cancels pending reconciliation and does not by itself change the durable target; a later correction requires stopped feedback and an explicit resume/new-target policy.
-2. An active application lock rejects every target-changing source except authorized unlock/replacement. An active durable override rejects schedule, environment, ordinary web, and Somfy-button target changes; authorized override replacement/clear is explicit and audited.
-3. Without those protections, authenticated web intent supersedes overlapping schedule/environment operations. A verified local-button terminal position is adopted as target after debounce so reconciliation does not fight ordinary physical use.
+2. An active application lock rejects every target-changing source except explicit unlock/replacement. An active durable override rejects schedule, environment, ordinary web, and Somfy-button target changes; explicit override replacement/clear is explicit and audited.
+3. Without those protections, web intent supersedes overlapping schedule/environment operations. A verified local-button terminal position is adopted as target after debounce so reconciliation does not fight ordinary physical use.
 4. Repeated manual requests for the same target revision use controller idempotency. Repeated persisted schedule/environment occurrence IDs are skipped before reaching the controller.
 5. Simultaneous rules are processed in stable order by occurrence UTC instant, configured priority, then rule ID. Each accepted intent creates a target revision; stale queued intents/operations are discarded.
 6. Invalid/stale rules, missing targets, unavailable celestial events, disabled rules, unknown environmental predicates, and failed conditions cannot produce an SDN write. Missing weather/environment values are never interpreted as zero.
-7. CurtainControl web server validates/persists the complete application configuration; Controller prepares and commits control-system inventory/policy/rule changes atomically through its integration interface. Failure preserves the previously active application/control configuration. Obsolete occurrences are cancelled without replay, and removed-device targets/protection are quarantined.
+7. Configuration is loaded from config.yaml at startup and changed at runtime only through the API. API handlers validate/apply/persist supported updates directly using the existing component interfaces; no file watcher or separate reload coordinator is required. Invalid input or failed writes preserve the current settings. External file edits apply on the next start.
 8. CurtainControl owns application startup/shutdown and HTTP admission. Controller coordinates active backend/SDN, monitoring, weather, scheduling, and control-state integration through start/close. Stop admission before control cleanup; initialize and release each resource once in mock, simulated, and real compositions.
 
 Controller execution retry and target reconciliation bounds shall be accounted for together per target revision. A new corrective operation must not reset an exhausted target-revision budget. Stop, supersession, fault, stale feedback, and exhaustion suppress automatic writes as specified above.
@@ -781,7 +775,7 @@ Controller execution retry and target reconciliation bounds shall be accounted f
 | Interface | Contract |
 |---|---|
 | `__init__(sdn_api, inventory, monitoring, control_config, state_repository, clock, weather_client=None, calendar=None)` | Inject validated dependencies; construction starts no I/O or tasks. |
-| `start()/close()` | Coordinate attached control-system components, recover durable targets, refresh actual state, start/cancel monitoring, weather polling, schedules, and reconciliation, then flush/close owned resources. Declare ownership of injected resources; borrowed test/application clients are released by their owner rather than closed twice. |
+| `start()/close()` | Coordinate attached control-system components, recover durable targets, refresh actual state, start/cancel monitoring, weather polling, schedules, and reconciliation, then flush/close owned resources. Use ordinary component start/close calls and test-fixture cleanup; no ownership registry is required. |
 | `submit(intent: ControlIntent) -> ControlDecision` | Single policy admission: validate source, resolve targets, deduplicate, enforce protection/priority, expand groups, persist accepted revision, then request execution. |
 | `execute(request: MovementRequest) -> Operation` | Controller execution boundary for resolved revisioned work. Standalone Phase 3 tests may exercise it; normal integrated callers use submit so policy cannot be bypassed. |
 | `stop(motor_id)` | Internal execution cancellation/stop path; application stop enters submit and pauses reconciliation for the revision. |
@@ -815,7 +809,7 @@ The supporting Pydantic models shall include:
 
 | Name | Test description | Interface tested |
 |---|---|---|
-| M01 — Valid control schema | Normalize open/close/stop/resume/percentage inputs, resolve valid decimal/hex references, and round-trip intent/movement JSON. | adapter input; `ControlIntent`; `MovementRequest` |
+| M01 — Valid control schema | Normalize open/close/stop/resume/percentage inputs, resolve valid canonical SDN hex references, and round-trip intent/movement JSON. | adapter input; `ControlIntent`; `MovementRequest` |
 | M02 — Invalid control schema | Reject booleans/fractions as addresses or percentages, out-of-range values, unknown actions/fields, missing/inappropriate percentage, and unrelated parameters; assert zero persistence and writes. | `ControlIntent`; `CurtainController.submit()`; `MovementRequest` |
 | M03 — State and operation invariants | Reject naive timestamps and inconsistent terminal operations; keep estimates and reported values distinct; validate replacements. | `MotorState`, `Operation` |
 | M06 — State health schema | Validate communication health independently of motion/fault and freshness; reject inconsistent observation identity and monitoring thresholds. | `MotorState`; monitoring configuration |
@@ -845,17 +839,17 @@ Implement these cases in `tests/test_controller.py` against the production Curta
 | Name | Test description | Interface tested |
 |---|---|---|
 | CC01 — Manual open/close | HTTP motor/group actions normalize to 0/100, reach one Controller policy admission, persist before execution, and expose truthful WebSocket/polling state. | Web server -> Controller.submit -> internal execute |
-| CC02 — Manual validation and failures | Reject unauthorized/malformed/unknown/disabled inputs with zero movement writes; safely translate Controller errors without mutating its private state. | HTTP web server; production Controller or isolated adapter spy |
+| CC02 — Manual validation and failures | Reject malformed/unknown/disabled inputs with zero movement writes; translate Controller errors safely. No browser authentication/role checks are implemented. | Web server request validation; Controller |
 | CC05 — Deduplication and missed events | Deliver duplicate intent keys, move the wall clock backward/forward, test default skip and grace execution, and prove at most one controller submission per occurrence ID. | `CurtainController.submit()`; internal execute/SDN spy and write count |
-| CC06 — Manual/schedule conflict | While scheduled movement is active, submit an overlapping authenticated manual request; verify target revision and controller-operation supersession while unaffected members continue. | `CurtainController` arbitration; `CurtainController` revision behavior |
-| CC07 — Coordinated atomic reload | Apply valid/invalid inventory, policy, rule, and location updates; verify prepare/commit, cancellation/recalculation, revisions, quarantine/no replay, and preservation of all old components after failure. | application reload coordinator; `CurtainController.reload()`; scheduler reload; production Controller with isolated repository/SDN fake |
+| CC06 — Manual/schedule conflict | While scheduled movement is active, submit an overlapping manual request; verify target revision and controller-operation supersession while unaffected members continue. | `CurtainController` arbitration; `CurtainController` revision behavior |
+| CC07 — Configuration API | GET/PUT config and resource APIs validate and persist config.yaml, apply supported component settings without a separate update coordinator, and preserve current settings after invalid input or failed writes. External file edits wait for restart. | Configuration API and ordinary module settings methods |
 | CC08 — Lifecycle and backend independence | The Phase 1 server starts without future modules; Controller integrates active components from Phase 3; optional work is demand-driven; startup rollback/cleanup is bounded; the real and simulated policy path is identical. | Stage composition, Controller lifecycle, diagnostics retention |
 | CC09 — Motor and group targets | Submit motor/group percentages, verify atomic member expansion, later individual/group supersession, and satisfied/moving/mixed/offline/failed aggregate states. | `submit()`; `snapshot()`; `CurtainController.execute()` mock |
 | CC10 — Input priority and durable override | Exercise web, local-button, schedule, environment, reconciliation, protection replace/clear/expiry, and safety stop; verify deterministic acceptance and zero writes for rejected intent. | `submit()`; `set_protection()`; internal execute/SDN spy and write count |
 | CC11 — Policy and hardware-lock separation | Lock motor/group targets, reject mutations, permit stop/unlock, observe physical local movement, and restore the locked target without sending any unverified SDN lock command. | `set_protection()`; `observe()`; `CurtainController.execute()/stop()` |
 | CC12 — Somfy local-button intent | Controller adopts supported stable local-UI terminal position when unprotected; preserves/reconciles protected targets after debounce; ambiguous cause is never guessed. | Controller.observe and policy path |
 | CC13 — Reconciliation and truthful actual state | Controller coalesces target mismatch scans, performs one eligible correction, and continues applying actual feedback before/during/after failure. | Controller policy/execution/observation helpers |
-| CC14 — Retry exhaustion and recovery | Bound retries/deadline, mark `failed_unmet`, suppress write loops, then test fresh recovery, authorized retry, and new-target revision eligibility. | reconciliation records; controller transport/verification outcomes |
+| CC14 — Retry exhaustion and recovery | Bound retries/deadline, mark `failed_unmet`, suppress write loops, then test fresh recovery, explicit retry, and new-target revision eligibility. | reconciliation records; controller transport/verification outcomes |
 | CC15 — Durable state recovery | Atomically persist targets/overrides/locks/event keys before movement; restore after restart, reject corruption/version mismatch safely, quarantine configuration mismatch, refresh actual state, and avoid blind command replay. | state repository; `start()`; controller queries/reconciliation |
 | CC17 — Adapter equivalence and isolation | Equivalent external HTTP requests and internal Scheduler occurrences normalize to the same Controller policy semantics. Server/scheduler/sensor never own a target copy, expand groups, or call raw SDN outside their phase contract. | HTTP -> Controller; internal callback -> Controller; sensor spies |
 | CC18 — Capabilities, cached reads, and stop pause | Reject unsupported features before persistence/writes, verify group capability intersection, ensure `snapshot()` performs no I/O, test internal/adapter endpoint convention mappings, and prove stop pauses reconciliation until resume/new target. | `CurtainCapabilities`; `snapshot()`; `submit(stop/resume)`; production Controller with isolated repository/SDN fake |
@@ -896,7 +890,7 @@ Simulation accepts explicit validated topology/scenario/timing inputs and the by
 | Timing | Model bus-idle delay, request-to-first-response latency, inter-byte/chunk timing, movement duration, polling response latency, and optional bounded jitter from a named timing profile. Defaults come from protocol limits until calibrated captures exist. Tests use an injected virtual monotonic clock; interactive simulation defaults to real elapsed time. `time_scale` may accelerate development runs but must be `1.0` for fidelity comparisons. |
 | Collision and faults | Support explicitly configured silence, delayed/late reply, malformed checksum, fragmented/coalesced chunks, offline motor, blocked movement, and disconnect scenarios. Fault injection is disabled unless named in the simulation scenario and recorded in the trace. |
 | Lifecycle | `open` resets or restores only the configured scenario state, increments a simulated connection generation, and starts no OS serial device. `close` cancels scheduled replies and pending movement tasks deterministically. No scheduled response may be emitted after close. |
-| Isolation | Simulator state and traces must not alter `config.json`, real motor state, or real capture files. Simulated mode must never instantiate or probe `pyserial`, even if a serial device path is present. |
+| Isolation | Simulator state and traces must not alter `config.yaml`, real motor state, or real capture files. Simulated mode must never instantiate or probe `pyserial`, even if a serial device path is present. |
 
 #### Interface
 
@@ -943,7 +937,7 @@ The legacy hard-coded/test alternating commands shall not be carried forward. Ev
 
 ##### Autonomous scheduling and solar control
 
-Each autonomous action shall originate from one enabled `ScheduleRule` in JSON. At minimum, the implementation shall support:
+Each autonomous action shall originate from one enabled `ScheduleRule` configured in config.yaml. At minimum, the implementation shall support:
 
 - recurring fixed local open/close/percentage times represented by a local-time trigger or standard five-field cron expression; and
 - solar-calendar events for sunrise, sunset, civil dawn/dusk, nautical dawn/dusk, and astronomical dawn/dusk, each with a signed offset in seconds.
@@ -977,7 +971,7 @@ Environmental rules must specify debounce, cooldown, and—where a continuously 
 | Model | Required fields and validation |
 |---|---|
 | `ScheduleRule` | Unique `id`, `enabled`, trigger discriminator, open/close/percentage action, motor/group target, timezone, signed offset, missed-event policy, cooldown, and optional typed conditions. Cron, solar/twilight, lunar, weather, temperature, and registered environmental triggers follow this phase's Behavior definition. Unknown fields are rejected. |
-| `ScheduledOccurrence` | Rule ID, stable occurrence ID, scheduled UTC instant, scheduled local instant with IANA timezone, action/target, calculation source, configuration revision, and optional solar base instant/offset. Timestamps must be timezone-aware. |
+| `ScheduledOccurrence` | Rule ID, stable occurrence ID, scheduled UTC instant, scheduled local instant with IANA timezone, action/target, calculation source, configuration revision, and optional solar base instant/offset. Operational timestamps are UTC. Local calendar fields/timezone identifiers are scheduling context defined by this sub-module, not a second operational timestamp convention. |
 | `EnvironmentalCondition` | Registered source/field, typed comparator, value and unit, required freshness, hysteresis, debounce, missing-data behavior, and optional clear threshold. Unsupported sources, fields, comparators, or unit combinations are rejected. |
 
 | Interface | Contract |
@@ -1132,12 +1126,12 @@ SdnTraceEvent and SdnTrace are defined in Pydantic Data Models. Recording paths 
 
 **Required executable example (EX08):** start a recorder with an isolated temporary destination and fake clock; append known TX/RX chunks, annotate one response, finish, reload, and assert exact bytes/order/deltas/metadata. Inject a write failure and verify incomplete status and bounded cleanup. Link to SIM07 and REC01–REC03.
 
-**Web-client integration:** add authorized recording start/stop, recording health, trace listing/metadata, and read-only raw/decoded inspection or download. Integration resolves trace IDs within the configured recording directory; browser-provided arbitrary filesystem paths are not accepted. Recording controls do not cause motor movement.
+**Web-client integration:** add explicit recording start/stop, recording health, trace listing/metadata, and read-only raw/decoded inspection or download. Integration resolves trace IDs within the configured recording directory; browser-provided arbitrary filesystem paths are not accepted. Recording controls do not cause motor movement.
 
 | Reporting interface | Contract |
 |---|---|
 | `append_log(record)` / `record_decision(record)` / `record_operation(record)` | Accept validated correlated events using bounded buffering and safe failure handling. |
-| `query_logs(filters, cursor, limit)` / `query_history(filters, cursor, limit)` | Return bounded authorized pages without reading/mutating controller internals. |
+| `query_logs(filters, cursor, limit)` / `query_history(filters, cursor, limit)` | Return bounded requested pages without reading/mutating controller internals. |
 | `health()` / `flush()/close()` | Expose sink errors/backlog and finalize/close owned destinations within finite bounds. |
 
 EX08 shall also execute an operational log, an accepted/skipped decision, and a completed/failed operation history example; reload/query/export them and verify correlation, filtering, redaction, rotation, and cleanup. Browser reports show operational/decision/operation records as well as optional raw traces. Starting a recording does not initiate an operation.
@@ -1175,7 +1169,7 @@ Use Python logging for diagnostics and an injected reporting sink for structured
 
 ### Application Integration
 
-CurtainControl web server is the overall application and web interface; main.py launches it with the selected phase/configuration. It manages application configuration, hosting, authentication, static views, request handling, readiness, and reporting access. CurtainController provides system integration and control and coordinates the active control components. It owns operational targets/actual state, rules/policy, persistence, and convergence. Calendar/data-source helpers are injected into Controller. The web interface presents Controller-owned state without creating another operational state store.
+CurtainControl web server is the overall application and web interface; main.py launches it with the selected phase/configuration. It manages application configuration, hosting, static views, request handling, readiness, and reporting access. CurtainController provides system integration and control and coordinates the active control components. It owns operational targets/actual state, rules/policy, persistence, and convergence. Calendar/data-source helpers are injected into Controller. The web interface presents Controller-owned state without creating another operational state store.
 
 External request path: browser/REST -> CurtainControl web server -> CurtainController -> SdnApi -> exactly one byte backend. Internal Scheduler occurrences enter Controller through an injected callback rather than requiring HTTP round trips. Controller receives WeatherSensor updates over an injected HTTP client and alone determines curtain actions. Local-button adoption/reconciliation occurs inside Controller. Phase 7 log/report sinks receive records and never command devices. Deferred fidelity/learning is not constructed.
 
@@ -1188,7 +1182,7 @@ Use small support classes with one state/policy owner. CurtainController keeps t
 | SerialInterface | Real asynchronous byte transport only. |
 | SdnApi | Protocol encoding, one receive loop, bounded parser/query state, and backend-boundary recorder hooks. |
 | CurtainController | System integration and control: coordinate SDN/scheduler/weather/repository, desired/actual state, operations, policy/protection, environmental decisions, and bounded convergence. |
-| CurtainControl web server | Overall application lifecycle/configuration, HTTP hosting/authentication, browser views/assets, diagnostics, reporting access, request handling, and safe presentation of Controller results. |
+| CurtainControl web server | Overall application lifecycle/configuration, HTTP hosting, browser views/assets, diagnostics, reporting access, request handling, and safe presentation of Controller results. |
 | Scheduler | Time/celestial occurrence calculation/delivery. Controller evaluates conditions and applies policy. |
 | WeatherSensor | Query providers and publish normalized timestamped updates and health. No curtain decision. |
 | SdnSim | Stateful raw-byte simulated motor/bus backend. |
@@ -1198,12 +1192,12 @@ The final runtime gives SdnApi exclusive reads/writes to its selected backend an
 
 #### Program Structure
 
-This section refines the shared [Overall System Definition](#overall-system-definition). Its active-profile validation, ownership, file/dependency, and secrets rules apply throughout; detailed settings below are required only when their component is active.
+This section refines the shared [Overall System Definition](#overall-system-definition). Its configuration, file/dependency, UTC/hex, and provider-secret rules apply throughout; detailed settings below are required only when their component is active.
 
 | Module / object | Responsibility |
 |---|---|
-| main.py | Process entry point for the CurtainControl application/web server: CLI/configuration bootstrap, launch, and application shutdown. Server helpers implement hosting, authentication, routes, views, and reporting access. |
-| config.py | Validated component settings, JSON/credential file boundary, atomic configuration writes, and active-component destination checks. |
+| main.py | Process entry point for the CurtainControl application/web server: CLI/configuration bootstrap, launch, and application shutdown. Server helpers implement hosting, routes, views, and reporting access. |
+| config.py | Validated component settings, YAML/credential file boundary, atomic configuration writes, and active-component destination checks. |
 | serial_interface.py | SerialInterface byte-transport contract. |
 | sdn_api.py | SdnApi codec/parser/query coordination and optional capture hooks. |
 | controller.py | CurtainController system integration/control, target/actual/policy/operation models, component coordination, and an injected atomic operational-state repository. |
@@ -1214,7 +1208,7 @@ This section refines the shared [Overall System Definition](#overall-system-defi
 | sdn_sim.py | SdnSim raw-byte simulation; existing capture helpers may be retained behind separate contracts. |
 | Diagnostics Reporting / SdnRecorder | Operational/decision/operation reporting and optional exact raw capture. Reuse reasonable code; separate source files only when useful. |
 | static/html/index.html, static/css/app.css, static/js/app.js | Dependency-free browser assets delivered progressively from Phase 1, using stateless HTTP reads/actions. |
-| requirements.txt / config.example.json / creds.example.yaml | Dependencies, active-stage configuration examples, and secret-free credential placeholders. |
+| requirements.txt / config.example.yaml / creds.example.yaml | Dependencies, active-stage configuration examples, and secret-free credential placeholders. |
 
 #### Module Design
 
@@ -1245,7 +1239,7 @@ Arrows denote allowed calls/data flow, not a mandatory separate process per comp
 
 | Producer | Contract | Consumer / ownership |
 |---|---|---|
-| Browser/REST | Stateless HTTP request with source/idempotency/revision metadata | CurtainControl web server authenticates/normalizes. |
+| Browser/REST | Stateless HTTP request with source/idempotency/revision metadata | CurtainControl web server validates/normalizes. Source metadata is not an authenticated identity. |
 | WebServer | ControlIntent / policy-management request | CurtainController.submit / set_protection / request_reconcile decides policy and persists state. |
 | Scheduler | ScheduledOccurrence via injected on_occurrence callback | Controller validates/deduplicates/evaluates/adopts intent through the same policy admission as external requests; no HTTP server dependency. |
 | CurtainController | MovementRequest | Internal execute boundary -> SdnApi.send. No web server or provider chooses raw commands. |
@@ -1256,34 +1250,27 @@ Arrows denote allowed calls/data flow, not a mandatory separate process per comp
 | WeatherSensor | WeatherSnapshot via GET /weather | Controller's injected HTTP client obtains updates; Controller alone evaluates rules and changes targets. |
 | Calendar/data-source helpers | Typed celestial/other observations | Scheduler uses calendar events; Controller evaluates conditions using supplied observations. |
 | Controller | Cached ControlSnapshot / Operation | WebServer serializes HTTP responses; browser polling cannot mutate state or trigger device I/O on a read. |
-| SdnApi / Controller / application | Ordered raw events / correlated decisions/operations / diagnostics | Phase 7 reporting sink stores bounded records; consumers read authorized pages by stable IDs. |
+| SdnApi / Controller / application | Ordered raw events / correlated decisions/operations / diagnostics | Phase 7 reporting sink stores bounded records; consumers read requested pages by stable IDs. |
 
-Pass validated immutable models/bytes; receiving owners create validated replacements. Translate typed errors into safe HTTP errors at the web server. Weather snapshots preserve source observation times through every boundary. Controller notifications may support in-process reporting, and the web server publishes authorized cached updates through the shared WebSocket contract.
+Pass validated immutable models/bytes; receiving owners create validated replacements. Translate typed errors into safe HTTP errors at the web server. Weather snapshots preserve source observation times through every boundary. Controller notifications may support in-process reporting, and the web server publishes cached updates through the shared WebSocket contract.
 
 #### Startup and Shutdown Communication
 
-At each stage CurtainControl web server validates the required active application settings, starts its web interface and the selected Controller integration, and reports application/component readiness. Before Controller exists, the application uses the isolated Phase 1/2 diagnostic components directly; later views reuse their active owner rather than dropping diagnostics. Controller.start coordinates active control-system initialization; failed initialization unwinds owned components in reverse order. No serial-only stage opens target/recording destinations or starts provider/scheduler tasks. Stage selection is an explicit development composition/profile.
+CurtainControl loads config.yaml, required provider credentials, and logging, then starts the functionality enabled for the current composition. Before Controller exists the application starts the current serial/protocol module directly; from Phase 3 Controller integrates control components. On any startup validation or initialization error, log the cause, stop startup, close what was started, and terminate with a nonzero result. If logging cannot initialize, report to stderr. Start serving HTTP/WebSocket only after successful startup.
 
-For the complete seven-phase application:
-
-1. main.py launches the CurtainControl web server with application configuration and required credentials.
-2. The application prepares enabled reporting destinations, configures HTTP authentication/routes/assets, and constructs or receives Controller with validated dependencies.
-3. Controller.start initializes its selected SDN/backend, repository, monitoring, and eligible target recovery in dependency order. Controller coordinates optional weather integration and Scheduler delivery when their phases are active. A weather outage degrades observations without blocking manual readiness.
-4. The application exposes readiness and accepts browser/REST requests after required Controller integration and web hosting initialize.
-
-On shutdown the CurtainControl application stops accepting actions and invokes Controller.close. Controller stops occurrences/weather polling, cancels control work, flushes operational state, and releases owned control-system resources in reverse dependency order. The application finalizes its reporting destinations and HTTP host. Cleanup is bounded/idempotent, with one owner per resource; a stage omits inactive components. Application lifecycle and Controller integration are distinct responsibilities.
+On normal shutdown stop admitting new work and call the active modules' ordinary close/stop methods. Controller stops its control tasks and attached integrations; the application closes the web host/log output. No separate ownership/borrowed-resource registry, leases, reference counting, or partial-start recovery manager is required. All devices are on the isolated network. Runtime device/provider failures and control recovery remain defined in the responsible sub-module.
 
 #### Dependency-injected application services
 
-CurtainControl owns overall application/web-server lifecycle and supplies validated configuration/dependency factories to CurtainController. Controller coordinates lifecycle and integration of attached control components: SdnApi/backend, scheduler/calendar, weather client/local sensor tasks, state repository, and control reporting hooks. Scheduler receives calendar functions and an occurrence-delivery adapter; WeatherSensor receives provider settings/client/clock and exposes WeatherSnapshot. The application owns HTTP hosting, authentication, web assets, and application reporting destinations. Each injected resource has one declared owner; startup/close must not initialize or release it twice. Log/report sinks remain optional until Phase 7.
+CurtainControl owns overall application/web-server lifecycle and supplies validated configuration/dependency factories to CurtainController. Controller coordinates lifecycle and integration of attached control components: SdnApi/backend, scheduler/calendar, weather client/local sensor tasks, state repository, and control reporting hooks. Scheduler receives calendar functions and an occurrence-delivery adapter; WeatherSensor receives provider settings/client/clock and exposes WeatherSnapshot. The application owns HTTP hosting, web assets, and application reporting destinations. Use the active modules’ normal start/close functions; do not add resource-ownership tracking. Log/report sinks remain optional until Phase 7.
 
-Early unit/fault tests inject a fake driver/transport without importing future modules; Phase 1–3 acceptance separately runs the production real driver on the configured rig. Later tests replace the backend with SdnSim while keeping the same decoder/controller/policy path. Unit tests can inject WeatherSnapshot fixtures; HTTP integration tests use a mocked sensor transport and recorded provider responses. No hidden mode may substitute target state for feedback or fabricate a weather-driven success.
+Early unit/fault tests inject a fake driver/transport without importing future modules; Phase 1–3 acceptance separately runs the production real driver on the configured rig. Later tests replace the backend with SdnSim while keeping the same decoder/controller/policy path. Unit tests can inject WeatherSnapshot fixtures; HTTP integration tests use a mocked sensor transport and recorded provider responses. No mode may substitute target state for feedback or fabricate a weather-driven success.
 
 #### Local configuration boundary
 
 All system-configuration/credential file reads and atomic configuration writes occur through config.py. Controller alone uses the injected atomic control-state repository for operational targets/protection/handled keys. Observed physical state is reconstructed from fresh feedback and is never trusted as configuration.
 
-Validate required settings/destinations only for active components. A Phase 1 serial diagnostic profile does not require location/schedules/weather/state/recording settings. The completed system retains one JSON configuration source with non-secret settings and separate credentials only for enabled providers/authentication. Reuse existing schemas and atomic-write helpers; remove unconditional later-feature checks from early-stage loading.
+Validate required settings/destinations only for active components. A Phase 1 serial diagnostic profile does not require location/schedules/weather/state/recording settings. The completed system retains one YAML configuration source with non-secret settings and separate credentials only for enabled providers. Reuse existing schemas and atomic-write helpers; remove unconditional later-feature checks from early-stage loading.
 
 #### Command, Feedback, and Live-State Communication
 
@@ -1319,157 +1306,209 @@ WeatherSensor updates enter Controller.update_weather and may produce a new sour
 
 #### API Contract
 
-The web server exposes HTTP commands/cached reads and the authenticated WS /events subscription below. Authenticate/authorize on the server, validate before effects, preserve caller idempotency/precondition metadata, and redact secrets. Read routes return cached owner snapshots; no HTTP read causes movement or serial/provider I/O. Diagnostics are retained across phases: their supported operations follow the active owner, inactive modules report unavailable, and no route competes with SdnApi.
+The web server exposes HTTP commands/cached reads and the WS /events subscription below. Validate requests before effects, preserve caller idempotency/precondition metadata, and redact secrets. Read routes return cached owner snapshots; no HTTP read causes movement or serial/provider I/O. Diagnostics are retained across phases: their supported operations follow the active owner, inactive modules report unavailable, and no route competes with SdnApi.
 
 | Method / route | Behavior |
 |---|---|
 | GET / and /static/{path} | Same-origin production browser assets, delivered incrementally from Phase 1. |
 | GET /health | Selected stage, active components, backend/observation/reporting health; no motion. |
-| WS /events | Authenticated on-demand live channel subscription with atomic initial snapshot, owner session/sequence, bounded delivery, gap/reconnect resynchronization, and HTTP fallback. Subscriptions cause no movement or independent provider/serial I/O. |
+| WS /events | on-demand live channel subscription with atomic initial snapshot, owner session/sequence, bounded delivery, gap/reconnect resynchronization, and HTTP fallback. Subscriptions cause no movement or independent provider/serial I/O. |
 | GET /diagnostics/serial | Phase 1 cached settings/status and bounded TX/RX history. |
-| POST /diagnostics/serial/open, /close, /write | Phase 1 authorized lifecycle/approved bytes. Retain diagnostic routes/views later; reject independent raw writes/lifecycle while SDN owns the adapter and use its query/command contract. |
+| POST /diagnostics/serial/open, /close, /write | Phase 1 explicit lifecycle/validated bytes. Retain diagnostic routes/views later; reject independent raw writes/lifecycle while SDN owns the adapter and use its query/command contract. |
 | POST /diagnostics/sdn/queries or /commands | Phase 2 verified typed protocol operations through SdnApi. From Phase 3 movement uses Controller admission; read-only queries share SDN arbitration and snapshots. |
 | GET /diagnostics; GET /diagnostics/{component} | Retained cached port/protocol/device/controller/automation/weather health and enabled-detail status; inactive channels identify their phase without starting them. |
-| PUT /diagnostics/{component}/collection | Authorized bounded opt-in collection configuration; disabling releases optional work without stopping required monitoring/verification. |
+| PUT /diagnostics/{component}/collection | Validated bounded opt-in collection configuration; disabling releases optional work without stopping required monitoring/verification. |
 | GET /config, /motors, /groups | Validated non-secret inventory/configuration. |
-| PUT /config; PUT /groups/{id} | Administrator-only complete validation and atomic configuration replacement/coordinated owner reload. |
+| PUT /config; PUT /groups/{id} | validation and persistence to config.yaml/API application of supported settings. |
 | POST /actions | Normalize open/close/percentage/stop/resume into ControlIntent; Controller decides, persists, and executes. Return 202 and decision/operation identity when accepted. |
 | PUT /motors/{id}/desired-state; PUT /groups/{id}/desired-state | Submit a target through Controller policy; expose member/aggregate result. |
 | GET /control-state; GET /state; GET /motors/{id}/state | Coherent cached Controller snapshots with desired/actual/convergence/freshness/session/revision. |
 | GET /operations/{id} | Cached current/terminal operation or not-found for expired/prior-session ID. |
-| POST /motors/{id}/stop, /resume, /reconcile | Controller stop/pause, authorized resume, and bounded recovery; actual stopped state still requires feedback. |
-| PUT/DELETE /motors/{id}/override or /lock; equivalent group routes | Authorized Controller protection updates; never imply an unverified hardware lock command. |
+| POST /motors/{id}/stop, /resume, /reconcile | Controller stop/pause, explicit resume, and bounded recovery; actual stopped state still requires feedback. |
+| PUT/DELETE /motors/{id}/override or /lock; equivalent group routes | Validated Controller protection updates; never imply an unverified hardware lock command. |
 | GET/POST /schedules | List/upcoming occurrences or validate/persist rules; Scheduler calculates time, Controller evaluates conditions. |
 | GET /weather | Phase 6 cached WeatherSnapshot from WeatherSensor for Controller/browser consumption; asynchronous provider refresh preserves measurement age. |
-| GET /logs; GET /history | Phase 7 bounded authorized operational and decision/operation records with filters/cursors. |
-| POST /recordings; POST /recordings/{id}/stop | Phase 7 authorized raw-capture lifecycle; no motor action. |
+| GET /logs; GET /history | Phase 7 bounded operational and decision/operation records with filters/cursors. |
+| POST /recordings; POST /recordings/{id}/stop | Phase 7 explicit raw-capture lifecycle; no motor action. |
 | GET /recordings; GET /recordings/{id}; GET /recordings/{id}/download | Phase 7 trace metadata/inspection/export by safe ID within configured destinations. |
-| POST /motors/{id}/calibration | Administrator-only explicit confirmed individual stopped-motor path; reject unsupported capabilities/groups and never label acceptance as verified calibration. |
+| POST /motors/{id}/calibration | explicit confirmed individual stopped-motor path; reject unsupported capabilities/groups and never label acceptance as verified calibration. |
 
-Invalid fields/ranges return 422; unauthorized/forbidden returns 401/403; unknown targets/records return 404; conflicting revisions/protection return a documented 409; unavailable backend/write failures return 503. Return safe typed reasons rather than raw exceptions. Controller does not wait for complete travel under a request lock. WS /events is the authenticated on-demand live-update route; commands remain HTTP.
+Invalid fields/ranges return 422; browser-authentication 401/403 behavior is not implemented; unknown targets/records return 404; conflicting revisions/protection return a documented 409; unavailable backend/write failures return 503. Return safe typed reasons rather than raw exceptions. Controller does not wait for complete travel under a request lock. WS /events is the on-demand live-update route; commands remain HTTP.
 
 #### REST and Live State
 
-Commands and mutations use stateless authenticated HTTP. GET /control-state (GET /state alias), motor state, and GET /operations/{id} return coherent cached owner snapshots with session/revision and observation timestamps. WS /events provides on-demand live updates for enabled control/operation/diagnostic/weather/report-health channels. Diagnostics can be available from Phase 1; control channels are added with Controller in Phase 3. Unimplemented/inactive channels report unavailable rather than importing later modules.
+Commands and mutations use stateless HTTP. GET /control-state (GET /state alias), motor state, and GET /operations/{id} return coherent cached owner snapshots with session/revision and observation timestamps. WS /events provides on-demand live updates for enabled control/operation/diagnostic/weather/report-health channels. Diagnostics can be available from Phase 1; control channels are added with Controller in Phase 3. Unimplemented/inactive channels report unavailable rather than importing later modules.
 
 On WebSocket subscription atomically capture an initial cached snapshot and its sequence together with subscriber registration so changes cannot be lost between them. Envelopes contain channel, owner session ID, monotonic sequence/revision, type, timestamp, and validated payload. Control changes originate in Controller; serial/protocol diagnostics originate in the active transport/SDN owner. Raw chunks are included only when bounded raw diagnostic collection is enabled. Internal notifications do not create a second state store.
 
 Browser commands remain HTTP. Apply only newer sequences in the current owner session; on a gap, disconnect, queue overflow, or session change obtain a complete HTTP/channel snapshot and re-establish the subscription. No unlimited replay history is required. Bounded per-subscriber queues disconnect slow consumers with a resynchronization reason; client delivery cannot block monitoring, stop, SDN reading, or provider/reporting tasks. A new Controller session invalidates old operation identities. Diagnostic channels use their own owner/session identity before Controller exists.
 
-Use the same server authorization policy for HTTP and WebSocket, validate origin according to deployment policy, and never put credential values in URLs or browser-persisted assets. Cache reads/subscriptions trigger no movement or independent serial/provider fetch. Live channel delivery is demand-driven; close/unsubscribe releases its tasks/buffers.
+Browser authentication is deferred for HTTP and WebSocket on the isolated device network. Retain schema validation, safe rendering, secret redaction, bounded queues, and subscription cleanup. Provider credentials never appear in messages or browser assets.
 
 When WebSocket is unavailable, use bounded HTTP snapshot/operation polling as fallback with visible stale/reconnecting state. Ignore out-of-order HTTP responses and cancel/coalesce obsolete reads. A slow idle fallback cadence and temporary faster active-operation cadence are configured and finite. Neither HTTP nor WebSocket receipt proves physical state: only decoded motor feedback updates actual position/status.
 
-#### JSON Configuration
+#### YAML Configuration
 
-This section refines the shared [Overall System Definition](#overall-system-definition). Its active-profile validation, ownership, file/dependency, and secrets rules apply throughout; detailed settings below are required only when their component is active.
+config.yaml is the only persistent source of feature settings. Load it at startup; API handlers are the only runtime configuration-change entry point. No browser authentication is implemented. The common timestamps/address representations follow the Overall System Definition; other conventions remain with sub-modules.
 
-Examples show optional schedule/weather/recording features disabled. Enabling a feature for acceptance or use is explicit in the selected profile; enabled tests declare that setup. Backend selection remains explicit rather than silently switching to simulation. Existing config.example.json is a reuse candidate and must be reconciled during authorized implementation; this spec-only edit does not modify it.
+This section refines the shared [Overall System Definition](#overall-system-definition). Its configuration, file/dependency, UTC/hex, and provider-secret rules apply throughout; detailed settings below are required only when their component is active.
 
-**Enablement and demand.** Optional Scheduler rules, weather provider/polling, simulated runtime mode, verbose/raw diagnostic collection, persisted reporting sinks/recordings, and detailed live diagnostic channels are disabled until explicitly selected/enabled. Simulation requires explicit backend selection and never replaces a failed real backend. A live diagnostic subscription may enable only its bounded collection work; close/disable releases it. Basic errors, cheap health counters, command verification, target protection, and required active/idle device monitoring remain enabled with the control component. Disabling a page/trace cannot disable safety stop, authoritative observation processing, or necessary verification/recovery. For dependencies shared by active features use reference/ownership tracking so one unsubscribe cannot stop another feature's required task. Controller policy locks, retry bounds, stop priority, and essential error logging are not optional diagnostic features. On-demand diagnostic collection must use cached/hooks-based observations and cannot change normal control timing without an explicit validated refresh request.
+Examples show optional schedule/weather/recording features disabled. Enabling a feature for acceptance or use is explicit in the selected profile; enabled tests declare that setup. Backend selection remains explicit rather than silently switching to simulation. Reconcile the existing configuration example into config.example.yaml during authorized implementation; this spec-only edit does not modify it.
 
-**Active-stage configuration.** Validate only settings required by constructed components. Phase 1 needs serial/application-host/authentication/diagnostic-web settings; Phase 2 adds protocol/device inventory/profile settings; Phase 3 adds Controller policy/state; Phase 4 adds simulation only when selected; Phase 5 adds schedule/calendar; Phase 6 adds weather client/provider/location; Phase 7 adds enabled diagnostic reporting/recording destinations. Keep existing JSON namespaces when useful. A disabled feature neither requires credentials nor creates/probes its destination. Stage selection must be explicit in development composition; completed-stage startup cannot silently omit required features.
+**Enablement and demand.** Optional Scheduler rules, weather provider/polling, simulated runtime mode, verbose/raw diagnostic collection, persisted reporting sinks/recordings, and detailed live diagnostic channels are disabled until explicitly selected/enabled. Simulation requires explicit backend selection and never replaces a failed real backend. A live diagnostic subscription may enable only its bounded collection work; close/disable releases it. Basic errors, cheap health counters, command verification, target protection, and required active/idle device monitoring remain enabled with the control component. Disabling a page/trace cannot disable safety stop, authoritative observation processing, or necessary verification/recovery. Stopping optional diagnostics must leave required control tasks running; no reference-count resource mechanism is required. Controller policy locks, retry bounds, stop priority, and essential error logging are not optional diagnostic features. On-demand diagnostic collection must use cached/hooks-based observations and cannot change normal control timing without an explicit validated refresh request.
+
+**Active-stage configuration.** Validate only settings required by constructed components. Phase 1 needs serial/application-host/diagnostic-web settings; Phase 2 adds protocol/device inventory/profile settings; Phase 3 adds Controller policy/state; Phase 4 adds simulation only when selected; Phase 5 adds schedule/calendar; Phase 6 adds weather client/provider/location; Phase 7 adds enabled diagnostic reporting/recording destinations. Keep existing YAML sections when useful. A disabled feature neither requires credentials nor creates/probes its destination. Stage selection must be explicit in development composition; completed-stage startup cannot silently omit required features.
 
 **Weather/reporting additions.** Configure provider refresh and Controller weather-client timeout/poll interval separately; both are positive and compatible with observation max-age. Configure bounded WebSocket queues/channels, fallback active/idle polling, diagnostic enablement/idle release, report page/buffer limits, rotation/retention, and explicit raw-capture enablement. The controller repository owns operational targets independently of configuration.
 
-The required command-line form is:
+Configuration/credential paths default as defined above; the explicit command-line form is:
 
 ```text
 python main.py \
-  --config /etc/curtain-control/config.json \
+  --config /etc/curtain-control/config.yaml \
   --credentials /etc/curtain-control/creds.yaml
 ```
 
-The document shall be UTF-8 JSON and include schema version, SDN backend selection, applicable real/simulation/recording settings, durable-control/reconciliation settings, site location used by celestial schedules, motors, groups, data sources, and schedules. Addresses may be JSON integers or `0x`-prefixed strings, but the loader shall normalize them to integers in the valid 24-bit range.
+The document shall be safely loaded UTF-8 YAML. Quote SDN hex strings so the YAML parser does not treat them as numeric scalars. API bodies and generated JSON Schema may remain JSON. Applicable settings include schema version, SDN backend selection, applicable real/simulation/recording settings, durable-control/reconciliation settings, site location used by celestial schedules, motors, groups, data sources, and schedules. SDN addresses in YAML and API payloads are quoted 0x-prefixed six-digit hexadecimal strings, normalized to uppercase digits. Decimal public representations are rejected; sub-modules may use integers internally for their validated wire operations.
 
-```json
-{
-  "schema_version": 1,
-  "sdn": {
-    "mode": "real",
-    "recording": { "enabled": false, "directory": "traces" },
-    "simulation": {
-      "seed": 20261004,
-      "time_scale": 1.0,
-      "timing_profile": "st30-default",
-      "devices": [
-        { "motor": "Stairs East", "initial_position_percent": 0, "travel_time_seconds": 20.0 }
-      ]
-    }
-  },
-  "serial": {
-    "port": "/dev/ttyUSB0",
-    "baudrate": 4800,
-    "bytesize": 8,
-    "parity": "odd",
-    "stopbits": 1
-  },
-  "control": {
-    "state_file": "/var/lib/curtain-control/control-state.json",
-    "startup_target_policy": "fresh_actual_if_missing",
-    "position_tolerance_percent": 2,
-    "local_input_debounce_seconds": 1.0,
-    "reconcile_interval_seconds": 30,
-    "retry_limit": 1,
-    "retry_cooldown_seconds": 10,
-    "reconciliation_deadline_seconds": 120,
-    "handled_event_history_limit": 1000
-  },
-  "location": { "latitude": 47.6062, "longitude": -122.3321, "timezone": "America/Los_Angeles" },
-  "web": {
-    "quick_rooms": [
-      { "id": "all", "label": "Full Home", "target": "All Windows", "icon": "fa-home" },
-      { "id": "entry", "label": "Entry", "target": "Entry", "icon": "fa-door-open" },
-      { "id": "sunroom", "label": "Sunroom", "target": "Sunroom", "icon": "fa-sun" },
-      { "id": "studio", "label": "Studio", "target": "Studio", "icon": "fa-mobile-alt" }
-    ]
-  },
-  "motors": [
-    { "address": "0x0671E4", "name": "Stairs East", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 }
-  ],
-  "groups": [
-    { "address": "0x010110", "name": "Main Floor", "description": "", "devices": ["Stairs East"] }
-  ],
-  "schedules": [
-    { "id": "weekday-open", "enabled": false, "timer": "cron", "expression": "45 5 * * 1-5", "action": { "action": "open", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
-    { "id": "sunset-close", "enabled": false, "timer": "solar", "event": "sunset", "offset_seconds": -1800, "action": { "action": "close", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
-    { "id": "hot-afternoon-shade", "enabled": false, "timer": "solar", "event": "civil_dawn", "offset_seconds": 21600, "conditions": { "all": [{ "source": "weather", "field": "outside_temperature", "operator": ">=", "value": 80, "unit": "degF", "max_age_seconds": 900, "hysteresis": 3 }] }, "debounce_seconds": 300, "cooldown_seconds": 3600, "action": { "action": "set_percent", "percentage": 75, "target_type": "group", "target": "Main Floor", "source": "environment" } }
-  ]
-}
+```yaml
+schema_version: 1
+sdn:
+  mode: "real"
+  recording:
+    enabled: false
+    directory: "traces"
+  simulation:
+    seed: 20261004
+    time_scale: 1
+    timing_profile: "st30-default"
+    devices:
+      - motor: "Stairs East"
+        initial_position_percent: 0
+        travel_time_seconds: 20
+serial:
+  port: "/dev/ttyUSB0"
+  baudrate: 4800
+  bytesize: 8
+  parity: "odd"
+  stopbits: 1
+control:
+  state_file: "/var/lib/curtain-control/control-state.json"
+  startup_target_policy: "fresh_actual_if_missing"
+  position_tolerance_percent: 2
+  local_input_debounce_seconds: 1
+  reconcile_interval_seconds: 30
+  retry_limit: 1
+  retry_cooldown_seconds: 10
+  reconciliation_deadline_seconds: 120
+  handled_event_history_limit: 1000
+location:
+  latitude: 47.6062
+  longitude: -122.3321
+  timezone: "America/Los_Angeles"
+web:
+  quick_rooms:
+    - id: "all"
+      label: "Full Home"
+      target: "All Windows"
+      icon: "fa-home"
+    - id: "entry"
+      label: "Entry"
+      target: "Entry"
+      icon: "fa-door-open"
+    - id: "sunroom"
+      label: "Sunroom"
+      target: "Sunroom"
+      icon: "fa-sun"
+    - id: "studio"
+      label: "Studio"
+      target: "Studio"
+      icon: "fa-mobile-alt"
+motors:
+  - address: "0x0671E4"
+    name: "Stairs East"
+    description: ""
+    type: "ST30 RS485"
+    install: "2026-01-01"
+    angle: 0
+    distance: 0
+groups:
+  - address: "0x010110"
+    name: "Main Floor"
+    description: ""
+    devices:
+      - "Stairs East"
+schedules:
+  - id: "weekday-open"
+    enabled: false
+    timer: "cron"
+    expression: "45 5 * * 1-5"
+    action:
+      action: "open"
+      target_type: "group"
+      target: "Main Floor"
+      source: "scheduler"
+  - id: "sunset-close"
+    enabled: false
+    timer: "solar"
+    event: "sunset"
+    offset_seconds: -1800
+    action:
+      action: "close"
+      target_type: "group"
+      target: "Main Floor"
+      source: "scheduler"
+  - id: "hot-afternoon-shade"
+    enabled: false
+    timer: "solar"
+    event: "civil_dawn"
+    offset_seconds: 21600
+    conditions:
+      all:
+        - source: "weather"
+          field: "outside_temperature"
+          operator: ">="
+          value: 80
+          unit: "degF"
+          max_age_seconds: 900
+          hysteresis: 3
+    debounce_seconds: 300
+    cooldown_seconds: 3600
+    action:
+      action: "set_percent"
+      percentage: 75
+      target_type: "group"
+      target: "Main Floor"
+      source: "environment"
 ```
 
 `sdn.mode` is required and is exactly `real` or `simulated`. `SdnApi` receives this validated configuration as its initialization parameter. Real mode requires valid serial settings and constructs/injects only `SerialInterface`. Simulated mode requires a complete simulation profile and constructs/injects only `SdnSim`; a serial section may remain for later deployment but is neither opened nor probed. Recording may be enabled in either mode. Relative recording paths resolve against the configuration-file directory; configuration updates must not overwrite trace files.
 
 Simulation configuration validates a fixed integer seed, positive `time_scale`, named/versioned timing profile, one simulated state entry per configured motor, initial position `0..100`, positive travel time, supported capabilities, and optional explicitly named fault scenarios. Fidelity comparison requires `time_scale=1.0`. Timing profiles contain protocol-limit defaults and declared response/chunk/movement behavior. Real-trace calibration and comparison tolerances belong to the deferred fidelity extension and are not required for active simulator startup. Unknown timing profiles, duplicate simulated devices, missing configured motors, or scenarios targeting unknown motors are startup errors.
 
-The implementation shall reject duplicate names or addresses, group members that do not refer to configured motors, malformed schedules/condition trees, incompatible units, invalid coordinates/timezones, invalid control/retry/persistence limits, invalid address ranges, invalid backend combinations, invalid serial/simulation/recording settings, and unwritable enabled recording/state destinations. File replacement shall use a temporary file in the same directory followed by an atomic rename. The original configuration/control-state document must remain intact if validation or writing fails. Configuration, control-state, and trace files shall contain no passwords, API keys, OAuth secrets, or access tokens.
+The implementation shall reject duplicate names or addresses, group members that do not refer to configured motors, malformed schedules/condition trees, incompatible units, invalid coordinates/timezones, invalid control/retry/persistence limits, invalid address ranges, invalid backend combinations, invalid serial/simulation/recording settings, and unwritable enabled recording/state destinations. File replacement shall use a temporary file in the same directory followed by an atomic rename. The original YAML configuration or sub-module control-state document must remain intact if validation or writing fails. Configuration, control-state, and trace files shall contain no passwords, API keys, OAuth secrets, or access tokens.
 
 **Configuration**
 
 The NWS provider uses the existing site coordinates; it does not require a separately configured station, URL, field mapping, or API key. For example:
 
-```json
-{
-  "location": {
-    "latitude": 47.6062,
-    "longitude": -122.3321,
-    "timezone": "America/Los_Angeles"
-  },
-  "data_sources": {
-    "weather": {
-      "enabled": false,
-      "provider": "nws",
-      "user_agent": "CurtainControl/1.0 (your deployment contact)",
-      "poll_interval_seconds": 300,
-      "max_age_seconds": 1800,
-      "request_timeout_seconds": 10,
-      "discovery_refresh_seconds": 86400
-    }
-  }
-}
+```yaml
+location:
+  latitude: 47.6062
+  longitude: -122.3321
+  timezone: "America/Los_Angeles"
+data_sources:
+  weather:
+    enabled: false
+    provider: "nws"
+    user_agent: "CurtainControl/1.0 (your deployment contact)"
+    poll_interval_seconds: 300
+    max_age_seconds: 1800
+    request_timeout_seconds: 10
+    discovery_refresh_seconds: 86400
 ```
 
-`config.example.json` supplies a complete deployment example. Customize the coordinates and identifying User-Agent for the deployment. Site or weather-provider configuration changes currently require application restart (`PUT /config` returns `restart_required`); restart creates a new provider and observation cache. Requests to `/points` round coordinates to four decimal places, while station distance calculations use the configured precision. NWS observation ingestion can lag measurement time, so choose freshness limits explicitly; retrieval never extends measurement age.
+`config.example.yaml` supplies a complete deployment example. Customize the coordinates and identifying User-Agent for the deployment. Weather/location settings enter through startup config.yaml or the configuration API. The API applies supported changes through normal provider setup; settings requiring restart are reported by that API, with no separate update mechanism. Requests to `/points` round coordinates to four decimal places, while station distance calculations use the configured precision. NWS observation ingestion can lag measurement time, so choose freshness limits explicitly; retrieval never extends measurement age.
 
 #### Pydantic Data Models
 
@@ -1487,9 +1526,9 @@ Use extra="forbid", validated defaults, and validated replacement objects for st
 | `SdnTrace` | Schema version, trace ID, backend, motor/profile identity, sanitized configuration hash, simulator seed when applicable, initial device state, ordered trace events, terminal state, start/end timestamps, and completeness/cleanup status. |
 | `SdnFidelityScore` (deferred) | Comparison validity, real/simulated trace IDs, event coverage, configured tolerances, mismatch details, and result. Component/overall scores are required and in `0..1` only for a valid comparison; they are null with explicit reasons when preflight declares the traces incomparable. |
 
-Use strict integer percentage `0..100` and integer addresses `1..0xFFFFFF`; reject booleans, fractional values, unknown fields, and inappropriate action parameters. Accept decimal and `0x` address strings through an explicit before-validator. `set_percent` requires percentage; other initial actions forbid it. Raw/payload bytes serialize to hex and round-trip through validated JSON.
+Control sub-modules retain their strict percentage/range/action validation. Configuration/API SDN addresses are canonical hex strings such as "0x0671E4"; normalize hex digit case and reject decimal strings, public numeric addresses, booleans, invalid width, and invalid characters. Sub-modules define reserved values and integer wire encoding internally. `set_percent` requires percentage; other initial actions forbid it. Raw/payload bytes serialize to hex and round-trip through validated JSON.
 
-Use timezone-aware timestamps and an injected monotonic clock for elapsed time. A new position response does not refresh an older motion/status observation. Unknown valid protocol commands may be logged but cannot update state. An unknown observation remains null rather than defaulting to zero.
+Use UTC for serialized/logged operational timestamps and normalize provider offsets to UTC. Monotonic deadlines and local calendar/timezone calculations are specified by the relevant sub-module. A new position response does not refresh an older motion/status observation. Unknown valid protocol commands may be logged but cannot update state. An unknown observation remains null rather than defaulting to zero.
 
 The application convention is `0% = fully open`, `100% = fully closed`. Apply a verified per-motor `invert_position` setting to commands and feedback. Keep estimates separate from reports: estimates may animate a client, but cannot verify completion or trigger retry.
 
@@ -1509,19 +1548,19 @@ FastAPI shall serve `static/html/index.html` at `/` and the versioned/deployable
 
 The primary screen is optimized for the exceptional manual action: normally automation needs no intervention; when it does, a room reaches the opposite terminal state with one press. Quick tiles default to Full Home (`fa-home`, target `All Windows`), Entry (`fa-door-open`), Sunroom (`fa-sun`), and Studio (`fa-mobile-alt`). Each tile always includes a text state plus a status symbol: `fa-curtain-open` for all members at or within tolerance of `0`, `fa-curtain-closed` for all at or within tolerance of `100`, and `fa-curtain-half-open` for partial, moving, or mixed known members. Unknown/offline state disables the toggle instead of guessing. A closed room continues to show its room symbol as the principal icon and the curtain symbol as a status indicator.
 
-Pressing a closed tile requests open; pressing an open, partial, moving, or mixed tile requests close. This deterministic mixed-state rule provides one-press closure without hiding the pre-command state. The tile becomes busy while request acceptance is pending, but the client must not optimistically change actual position. It initializes from authenticated GET /control-state and applies validated WebSocket updates with operation polling fallback; after connectivity/session recovery it fetches a complete snapshot and ignores older revisions.
+Pressing a closed tile requests open; pressing an open, partial, moving, or mixed tile requests close. This deterministic mixed-state rule provides one-press closure without hiding the pre-command state. The tile becomes busy while request acceptance is pending, but the client must not optimistically change actual position. It initializes from GET /control-state and applies validated WebSocket updates with operation polling fallback; after connectivity/session recovery it fetches a complete snapshot and ignores older revisions.
 
 Holding a quick tile for 650 milliseconds navigates directly to that room's detailed controls without sending a movement command; each tile includes a short visible hold hint. The detailed target list is scoped to the room group, every configured subgroup whose members are wholly contained in that room, and the individual curtains belonging to the room; unrelated or merely overlapping groups are excluded. The room group is selected and the position panel is brought into view. Releasing after a recognized hold must suppress the synthetic click so a hold can never also toggle the room. Pointer cancellation or leaving the tile cancels the pending hold, and the native touch context menu is suppressed on these controls. `Shift+Enter` provides the equivalent direct-detail action for keyboard users, while ordinary Enter remains the one-press toggle. Selecting Home in the bottom toolbar restores the unfiltered target list.
 
 The fixed bottom tool bar contains exactly three primary destinations:
 
 1. Home (`fa-home`) lists rooms, subgroups, and curtains. Selecting any target enables open/close and an integer `0..100` slider, where `0` is open and `100` is closed.
-2. Configure (`fa-gear`) edits validated group membership and calibrates an individual motor's top/open or bottom/closed physical limit. Calibration requires administrator authorization, a fresh stopped motor state, an explicit confirmation, and an individual motor; it is never issued through a group or generic movement action.
+2. Configure (`fa-gear`) edits validated group membership and calibrates an individual motor's top/open or bottom/closed physical limit. Calibration requires a fresh stopped motor state, an explicit confirmation, and an individual motor; it is never issued through a group or generic movement action.
 3. Schedule (`fa-clock`) lists and configures fixed/celestial rules and Controller-evaluated environmental conditions using the same validated ScheduleRule models as configuration. Configure provides links to stage diagnostics, weather details, and Phase 7 reports; early-phase diagnostic pages may be simpler than the completed navigation.
 
 The layout shall work at 320 CSS pixels and at desktop widths, use at least 44 by 44 CSS-pixel touch targets, preserve visible keyboard focus, expose control names and textual state to assistive technology, and honor `prefers-reduced-motion`. Icons may reinforce but never be the only state indication. The requested `fa-*` names are semantic IDs in the local sprite; exact Font Awesome artwork or a Font Awesome runtime dependency is not required.
 
-`POST /actions` shall validate/authenticate the request, normalize it to `ControlIntent`, then call `CurtainController.submit()`. The supported legacy intent mapping is:
+`POST /actions` shall validate the request, normalize it to `ControlIntent`, then call `CurtainController.submit()`. The supported legacy intent mapping is:
 
 | Web/API intent | Normalized controller action | Legacy Node behavior preserved |
 |---|---|---|
@@ -1530,17 +1569,17 @@ The layout shall work at 320 CSS pixels and at desktop widths, use at least 44 b
 | Stop active movement | `stop` | Immediate stop through the normal controller path and pause reconciliation for the affected target revision until resume/new target. |
 | Set percentage | `set_position` with integer `0..100` | Supported programmatic position control; endpoints remain consistent with open/close. |
 
-The route shall return HTTP 202 and an operation/decision identifier when an action is accepted. Invalid input, an unknown/disabled target, or failed authorization shall produce a typed 4xx response and zero SDN writes. Transport unavailability shall produce a safe 503 response. The resulting Operation and MotorState progression shall be exposed through cached HTTP snapshot polling so a web client can show opening/closing progress and the verified terminal state.
+The route shall return HTTP 202 and an operation/decision identifier when an action is accepted. Invalid input, an unknown/disabled target, or rejection by Controller protection rules shall produce a typed 4xx response and zero SDN writes. Transport unavailability shall produce a safe 503 response. The resulting Operation and MotorState progression shall be exposed through cached HTTP snapshot polling so a web client can show opening/closing progress and the verified terminal state.
 
 #### Web Interface
 
 The client assets are `static/html/index.html`, `static/css/app.css`, and `static/js/app.js`; the required semantic SVG symbols shall be embedded in the HTML. FastAPI shall mount these assets on the same origin as the API so no CORS exception or external asset host is required. The page shall remain usable on mobile/desktop, show WebSocket/polling connectivity and observation age, preserve historical state visibly marked stale, and refuse state-dependent toggles when actual state is unknown. Assets are delivered progressively from Phase 1. This documentation-only update does not generate them; repository presence is not acceptance evidence.
 
-The client has no authoritative control model; it keeps only a display snapshot. It reads inventory from `GET /config`, `GET /groups`, and `GET /motors`; reads actual/desired/convergence state from `GET /control-state`; sends mutations through the documented routes; and uses authenticated WS /events for live updates with cached HTTP snapshots/operation polling for initialization, recovery, and fallback. It may coalesce overlapping fallback reads without hiding errors or regressing revisions. It shall never turn an accepted HTTP command into a fabricated actual position. API errors are displayed without exposing raw exceptions, credentials, or network internals.
+The client has no authoritative control model; it keeps only a display snapshot. It reads inventory from `GET /config`, `GET /groups`, and `GET /motors`; reads actual/desired/convergence state from `GET /control-state`; sends mutations through the documented routes; and uses WS /events for live updates with cached HTTP snapshots/operation polling for initialization, recovery, and fallback. It may coalesce overlapping fallback reads without hiding errors or regressing revisions. It shall never turn an accepted HTTP command into a fabricated actual position. API errors are displayed without exposing raw exceptions, credentials, or network internals.
 
-`config.json` may contain an optional `web.quick_rooms` array. Each entry has a stable ID, display label, configured group target, and an allowlisted local icon ID. If absent, the client uses Full Home/`All Windows`/`fa-home`, Entry/`Entry`/`fa-door-open`, Sunroom/`Sunroom`/`fa-sun`, and Studio/`Studio`/`fa-mobile-alt`. A missing configured target appears unavailable rather than silently mapping to another group. Only local sprite IDs are accepted; arbitrary markup, script, CSS, URLs, or SVG paths from configuration are prohibited.
+`config.yaml` may contain an optional `web.quick_rooms` array. Each entry has a stable ID, display label, configured group target, and an allowlisted local icon ID. If absent, the client uses Full Home/`All Windows`/`fa-home`, Entry/`Entry`/`fa-door-open`, Sunroom/`Sunroom`/`fa-sun`, and Studio/`Studio`/`fa-mobile-alt`. A missing configured target appears unavailable rather than silently mapping to another group. Only local sprite IDs are accepted; arbitrary markup, script, CSS, URLs, or SVG paths from configuration are prohibited.
 
-Authentication and authorization are server responsibilities. The page must work with the deployment's same-origin authenticated session, must not store API credentials in JavaScript, local storage, query strings, or static files, and must not expose administrator controls to an unauthorized response context. Hiding a button is not authorization: every configuration, calibration, and schedule mutation is enforced again by FastAPI.
+Browser authentication is deferred. The client makes HTTP/WebSocket requests on the isolated device network without login, bearer-token handling, role checks, or stored browser credentials. Request/data validation, explicit calibration confirmation, protection rules, and provider-secret redaction still apply.
 
 Static, server, DOM, and browser behavior shall be implemented in `tests/test_web_ui.py` and browser integration tests when the interface is generated. Tests shall use the production assets and API routes, not a parallel test page. Browser cases are implemented with their phase; no browser execution is claimed by this documentation-only revision.
 
@@ -1550,9 +1589,9 @@ Static, server, DOM, and browser behavior shall be implemented in `tests/test_we
 | UI02 — Responsive/accessibility contract | Verify viewport metadata, semantic buttons/navigation, textual status, keyboard focus, minimum touch sizing, and reduced-motion CSS at mobile and desktop viewports. | HTML/CSS DOM and computed layout |
 | UI03 — Quick tile mapping | Defaults map Full Home, Entry, Sunroom, and Studio to the required room icons/targets and map open/closed/mixed state to the required curtain status symbols. | `/config`; `/control-state`; quick tiles |
 | UI04 — Tile press and hold | One press sends exactly one close for open/mixed/partial state or one open for closed state; unknown/offline sends none. A 650 ms hold sends no action, suppresses the following click, and opens a list containing only the room, wholly contained subgroups, and member curtains. Verify pointer cancellation and `Shift+Enter`. | quick tile -> `POST /actions` or scoped detail view |
-| UI05 — Truthful live movement | Initial HTTP snapshot, authenticated WebSocket updates, slow-client/reconnect recovery, and polling fallback display only feedback-derived actual state and newer session/sequence data. | WS /events; GET /control-state; GET /operations; production UI |
+| UI05 — Truthful live movement | Initial HTTP snapshot, WebSocket updates, slow-client/reconnect recovery, and polling fallback display only feedback-derived actual state and newer session/sequence data. | WS /events; GET /control-state; GET /operations; production UI |
 | UI06 — Target slider | Room/group/curtain selection displays actual state and sends validated integer `0..100` positions with endpoint conventions intact. | target browser; slider; `POST /actions` |
-| UI07 — Configuration safety | Group edits submit validated membership; calibration requires an individual stopped motor, fresh state, authorization, and confirmation; cancel/invalid state sends no write. | group and calibration views/routes |
+| UI07 — Configuration safety | Group edits submit validated membership; calibration requires an individual stopped motor, fresh state, and confirmation; cancel/invalid state sends no write. | group and calibration views/routes |
 | UI08 — Schedule editor | Create fixed-time and event/offset rules through the validated schedule schema; show API validation without losing user input. | schedule view; `/schedules` |
 
 #### Legacy capability and requested-feature review
@@ -1567,7 +1606,7 @@ The migration shall preserve useful behavior, not defects. A command builder in 
 | Timed jog | `Start()` maps motor `Jog`; the service page submits direction/time. | Missing from the active specification and now recorded as a deferred compatibility extension. It requires limits, maximum duration, stop semantics, authorization, and hardware tests before exposure. |
 | Legacy motor lock/unlock | `Start()` sends JavaScript `0x4B/0x5B`-family behavior through `SetLock()`. Supplied SDN revisions conflict and the Node receiver cannot verify it. | Do not claim parity by sending an unsafe command. Application policy protection is required; hardware lock/unlock remains capability-gated and deferred until profile/hardware evidence resolves the wire protocol. |
 | Stop, count position, and position/status queries | Helpers exist in `sdn-protocol.js`, but exported `CurtainControl.Stop()` is empty, application routes do not expose count/query behavior, and the receive parser is broken. | Stop and verified position/status are required new functionality. Raw count positioning remains deferred; down-limit counts are calibration/configuration, not a public target unit. |
-| Device/group configuration UI and CRUD | Static configuration page plus MySQL GET-based add/update/delete routes. | Preserve validated inventory/configuration read/update behavior through REST and atomic JSON/YAML files; intentionally omit MySQL, unsafe GET mutations, and bundled legacy UI. |
+| Device/group configuration UI and CRUD | Static configuration page plus MySQL GET-based add/update/delete routes. | Preserve validated inventory/configuration read/update behavior through REST and atomic YAML configuration writes; intentionally omit MySQL, unsafe GET mutations, and bundled legacy UI. |
 | Scheduling | `NextEvent()` supports one-time date, timestamp, misspelled `chron`, sunrise/sunset, moonrise/moonset, offsets, and callback conditions. Offset values are added to JavaScript millisecond timestamps while examples appear written as seconds; `ProcessEvents()` is hard-coded test behavior including one-minute alternating movement. | Support `cron` (accept `chron` only in an explicit migration importer), one-time timestamps, explicit `offset_seconds`, solar/twilight/lunar/environment events, typed conditions, and configuration-driven actions. Never carry forward ambiguous units or test alternation. |
 | Static web and Socket.IO control | Express serves pages and Socket.IO accepts `Action`. The handler calls `Start()` with the wrong signature in the checked-in code. | Replace it with the new `static/` HTML/CSS/JavaScript client using REST plus the HTTP snapshots, WebSocket live updates, and polling fallback. Socket.IO, jQuery, and the bundled legacy pages remain excluded. |
 | Virtual serial port in development | Node selects `virtual-serialport` from `NODE_ENV`. | Replaced by deterministic byte mocks and the stateful `SdnSim`; no second serial-simulator path. |
@@ -1704,43 +1743,43 @@ The generation report shall map SDN-001..014 to implemented methods and named te
 
 | Use case ID | Use case description | Scenario description | Behavior |
 |---|---|---|---|
-| UC-001 | Start service | Operator launches the server with a JSON path. | Validate configuration, initialize exactly one real or simulated SDN backend, expose API, and start scheduler. |
+| UC-001 | Start service | Operator launches the server with default config.yaml or --config. | Validate and initialize enabled components; log and exit on startup failure, otherwise serve the API. |
 | UC-002 | Operate a motor | Automation requests open/close for a configured motor. | Validate and transmit, monitor reported movement, and verify operation completion. |
 | UC-003 | Operate a group | Automation requests movement for a configured group. | Send the supported group command and verify each member individually. |
 | UC-004 | Set a motor position | Automation requests a percentage position. | Validate the target, transmit, publish progressing state, and verify final position/status. |
-| UC-005 | Read/update configuration | Administrator reads or updates motors, groups, or schedules through HTTP. | Validate the whole configuration and atomically replace the JSON file. |
+| UC-005 | Read/update configuration | Administrator reads or updates motors, groups, or schedules through HTTP. | Validate the whole configuration and atomically replace the YAML file. |
 | UC-006 | Run schedule | A cron or celestial event becomes due. | Evaluate condition/configuration and execute its configured action once. |
 | UC-007 | Run without hardware | Operator selects simulated SDN mode. | Construct `SdnApi` with `SdnSim`, execute the normal controller/API workflow with hardware-like raw responses and timing, and open no serial port. |
 | UC-008 | Measure simulator fidelity (deferred) | Deferred extension: developer records an allowlisted real execution and reproduces it in simulation. | Validate trace comparability, align events, calculate component and overall `0..1` fidelity scores, and report mismatches without altering either trace. |
-| UC-009 | Manual web control | A user opens the bundled responsive client and taps a room tile. | FastAPI authenticates and validates exactly one request, `CurtainController` applies manual priority, and verified movement events update the client live without optimistic actual state. |
+| UC-009 | Manual web control | A user opens the bundled responsive client and taps a room tile. | FastAPI validates exactly one request, `CurtainController` applies manual priority, and verified movement events update the client live without optimistic actual state. |
 | UC-010 | Run fixed/solar automation | A configured local time, sunrise, or sunset occurrence becomes due. | Calculate one timezone-aware occurrence, deduplicate it, apply override/condition policy, and submit its open/close action through `CurtainController`. |
 | UC-011 | Adopt Somfy button input | A user moves a curtain from a supported local Somfy control while no override/lock is active. | Observe local-UI cause and stable stopped position, make it the new durable target, and update group aggregates without fighting the user. |
 | UC-012 | Maintain protected target | Actual position differs from a durable or locked target after local/external movement. | Preserve truthful actual state, wait for settling, issue bounded correction, and mark explicit unmet failure rather than retry forever. |
 | UC-013 | Apply environmental automation | A moon, weather, outside-temperature, or registered environmental predicate crosses its configured edge. | Validate freshness/units/conditions, debounce/deduplicate/cool down, respect override/lock, and set the configured target once. |
-| UC-014 | Configure from browser | An authorized administrator edits group membership, calibrates one stopped curtain, or creates a schedule. | Validate the complete resource, require explicit calibration confirmation, persist atomically, and display safe validation feedback. |
+| UC-014 | Configure from browser | A user edits group membership, calibrates one stopped curtain, or creates a schedule. | Validate the complete resource, require explicit calibration confirmation, persist atomically, and display safe validation feedback. |
 
 | Use case ID | Use case description | Scenario description | Behavior |
 |---|---|---|---|
 | UC-015 | Inspect weather | A user opens the weather view. | Show station provenance, normalized measurements, observation age and health; no movement from missing/stale data. |
-| UC-016 | Record execution | An authorized user starts/stops recording around an independently requested operation. | Capture raw bytes and metadata, expose complete/incomplete status, and preserve recordings for read-only comparison. |
+| UC-016 | Record execution | A user starts/stops recording around an independently requested operation. | Capture raw bytes and metadata, expose complete/incomplete status, and preserve recordings for read-only comparison. |
 | UC-017 | Calibrate simulation (deferred) | Deferred extension: a developer supplies approved training and disjoint validation captures. | Fit bounded timing parameters offline, evaluate fixed fidelity criteria, and save an accepted versioned candidate without changing live behavior. |
 
 #### Alexa Control
 
-Alexa is undefined and explicitly deferred. This version shall not include `alexa.py`, Alexa routes, discovery, directives, account linking, proactive reporting, cloud credentials, dependencies, or tests that imply functional Alexa support. A future adapter may translate authenticated directives into the same `ControlIntent` boundary and read truthful `CurtainController.snapshot()` state, but adding it requires a separate specification update and security review. No current configuration or credential field is reserved or required for Alexa.
+Alexa is undefined and explicitly deferred. This version shall not include `alexa.py`, Alexa routes, discovery, directives, account linking, proactive reporting, cloud credentials, dependencies, or tests that imply functional Alexa support. A future adapter may translate directives into the same `ControlIntent` boundary and read truthful `CurtainController.snapshot()` state, but adding it requires a separate specification update and security review. No current configuration or credential field is reserved or required for Alexa.
 
 #### Program Environment
 
-This section refines the shared [Overall System Definition](#overall-system-definition). Its active-profile validation, ownership, file/dependency, and secrets rules apply throughout; detailed settings below are required only when their component is active.
+This section refines the shared [Overall System Definition](#overall-system-definition). Its configuration, file/dependency, UTC/hex, and provider-secret rules apply throughout; detailed settings below are required only when their component is active.
 
 **Credentials**
 
-No database credentials are used. Non-secret system settings belong in `config.json`; weather keys, API keys, and tokens belong in a separate YAML file supplied using `--credentials`. There are no Alexa credentials in this version.
+No database credentials are used. Non-secret system settings belong in `config.yaml`; weather keys, API keys, and tokens belong in a separate YAML file supplied using `--credentials`. There are no Alexa credentials in this version.
 
 Production files shall normally be located at:
 
 ```text
-/etc/curtain-control/config.json
+/etc/curtain-control/config.yaml
 /etc/curtain-control/creds.yaml
 ```
 
@@ -1792,7 +1831,7 @@ tzdata; sys_platform == "win32"
 - Type annotate public code and use Pydantic models at configuration/API boundaries.
 - Use Python `logging`; do not log raw configuration unnecessarily or silently discard serial errors.
 - Keep SDN encoding pure and byte-for-byte unit tested.
-- Provide `requirements.txt`, `config.example.json`, `creds.example.yaml`, `.gitignore`, and deployment instructions for a Python systemd service running as the dedicated `curtaincontrol` user.
+- Provide `requirements.txt`, `config.example.yaml`, `creds.example.yaml`, `.gitignore`, and deployment instructions for a Python systemd service running as the dedicated `curtaincontrol` user.
 
 ## Prompts
 
@@ -1802,21 +1841,21 @@ The active seven-phase runtime contains no LLM prompts or in-context-learning fi
 
 | Requirement ID | Requirement description | Requirement verification |
 |---|---|---|
-| FR-001 | Start only when `--config` identifies a readable, valid JSON file. | Missing, unreadable, malformed, and invalid-schema files cause a clear nonzero startup failure. |
-| FR-003 | Load motors, groups, SDN backend/serial/simulation/recording settings, location, and schedules from JSON. | Valid real and simulated fixtures are normalized and exposed safely through service/config APIs. |
-| FR-004 | Persist configuration changes atomically to the same JSON file. | Update test verifies valid replacement and preservation after write/validation failure. |
+| FR-001 | Load config.yaml from the default path or --config override. Log startup failure and shut down; serve the application only after successful startup. | Default/override YAML and invalid/unreadable/invalid enabled-setting cases verify success or logged nonzero termination. |
+| FR-003 | Load applicable motors, groups, SDN backend/serial/simulation/recording settings, location, and schedules from config.yaml. | Valid real and simulated fixtures are normalized and exposed safely through service/config APIs. |
+| FR-004 | Startup loads config.yaml; runtime changes enter only through the API and persist to that same YAML document. No separate configuration update service/watch/reload protocol. | CASE03 and IT-008 verify API validation/persistence, preservation on failure, and external-edit application at next start. |
 | FR-005 | Encode initial open, close, stop, and percentage commands compatibly with verified legacy packet rules. | Golden-byte tests cover supported motor/group commands; extensions are gated by separate capability and payload tests. |
 | FR-006 | In real mode use configured 4,800/8/odd/1 serial defaults and report serial failures safely; simulated mode must not access a serial port. | Backend-selection tests verify effective real settings, simulated no-port behavior, and safe HTTP/backend errors. |
 | FR-007 | Serve the dependency-free responsive client from `static/` while retaining HTTP action/snapshot control and no jQuery, Socket.IO, external CDN, or front-end build dependency. | UI01 and package/asset inspection verify routes, content types, local assets, and excluded dependencies. |
 | FR-008 | Validate action targets and values before serial writes. | Invalid action/target/range tests return 4xx and assert zero writes. |
 | FR-009 | Scheduler computes timed/celestial occurrences in Phase 5 and delivers an internal callback to Controller; Controller evaluates conditions/policy independently of web hosting. | CC03–CC05/CC16 and WDC01–WDC04 verify calculation, condition ownership, deduplication, and callback isolation. |
-| FR-010 | CurtainControl owns active-stage application startup/shutdown and invokes Controller integration lifecycle; no inactive later component is required. | CC08 and lifespan tests verify active settings, startup rollback, and bounded reverse cleanup. |
+| FR-010 | Simple startup validates/initializes enabled components; on failure log and shut down, on success start serving. Ordinary component stop/close handles shutdown without a resource-ownership mechanism. | CASE02/CASE04 and lifecycle tests verify logged failure/nonzero exit and normal start/stop on the isolated device network. |
 | FR-011 | Load secrets only from the `--credentials` YAML file using safe YAML parsing and validated secret models. | Credential tests cover valid, missing, unreadable, malformed, and incomplete credential files and verify secrets are not logged or returned. |
 | FR-012 | Defer Alexa completely in this version while preserving a future adapter boundary at `CurtainController.submit()`. | File, route, dependency, configuration, and credential inspection confirms no Alexa implementation or implied runtime support. |
 | FR-013 | Declare all direct runtime dependencies in `requirements.txt`. | A clean virtual environment can install the file and start the service with test configuration. |
 | FR-014 | Maintain reported state separately from active operation targets and verify operations from fresh SDN feedback. | State, response, and group tests demonstrate verified completion and timeout handling. |
 | FR-015 | Controller owns both bounded operation retry and target reconciliation, respecting stop, faults, stale data, supersession, and an overall target-revision budget. | C04–C08, C15–C16, CC12–CC14 prove bounds, truthful state, and no write loop. |
-| FR-016 | HTTP commands/cached snapshots and authenticated on-demand WS /events provide live updates with channel session/sequence, atomic initial snapshot, bounded queues, reconnect recovery, and HTTP polling fallback. | A01–A06, UI05, SI05 verify live/polling parity, backpressure, ordering, and non-blocking control. |
+| FR-016 | HTTP commands/cached snapshots and on-demand WS /events provide live updates with channel session/sequence, atomic initial snapshot, bounded queues, reconnect recovery, and HTTP polling fallback. | A01–A06, UI05, SI05 verify live/polling parity, backpressure, ordering, and non-blocking control. |
 | FR-017 | Preserve feedback receipt identity and per-field freshness, separate motor faults from communication failures, and verify using current coherent observations. | M06–M07, C12–C16, and A06 prove metadata, stop/group outcomes, stale-state transitions, and session recovery. |
 | FR-018 | Keep deterministic mock unit/fault tests, require real production-driver evidence for Phases 1–3, and add stateful SdnSim in Phase 4 with no silent fallback. | SI06, EX01–EX03, H01–H06 as applicable, R01–R02, and SIM01–SIM07 classify backend/results independently; fidelity remains deferred. |
 | FR-019 | Require stateful `SdnSim` and select real or simulated runtime mode through the validated `SdnApi` initialization configuration. | SIM01–SIM06 prove exact selection, no serial access in simulation, raw response processing, state/timing behavior, and deterministic lifecycle. |
@@ -1825,7 +1864,7 @@ The active seven-phase runtime contains no LLM prompts or in-context-learning fi
 | FR-022 | CurtainControl is the overall application and web server; CurtainController.submit(ControlIntent) is the sole normal policy/state admission and Controller alone owns SDN execution/actual state. | CC01–CC18 and architecture checks prove web server/scheduler/sensor isolation. |
 | FR-023 | Preserve Node-server manual web behavior in the bundled UI: open maps to up limit, close maps to down limit, and live verified state is published without optimistic actual state. | CC01–CC02, A01–A06, and UI03–UI06 verify mapping, validation, errors, one-press behavior, and live progression with zero writes for rejected requests. |
 | FR-024 | Execute fixed/five-field-cron and solar/twilight open/close/percentage rules using location, IANA timezone, signed offsets, explicit DST/missed-event behavior, and deterministic occurrence identity. | CC03–CC05 and CC16 verify cron, sunrise/sunset, all twilight levels, DST, polar/unavailable, grace, and duplicate cases with a virtual clock. |
-| FR-025 | Controller owns priority/protection/targets; CurtainControl coordinates application configuration/lifecycle and Controller coordinates control-system reload/lifecycle. | CC06–CC08 and CC10–CC11 verify rollback, policy, no replay, and lifecycle isolation. |
+| FR-025 | Controller retains control policy/protection; application settings come from config.yaml at startup and the configuration API only. | CC06–CC08 and CC10–CC11 verify policy, simple lifecycle, API updates, and no separate update framework. |
 | FR-026 | Maintain a durable desired percentage for every curtain, versioned group intent/member targets, and truthful separately observed actual state. | CC09, CC13, configuration-schema tests, and snapshot/API tests verify supersession, group aggregation, and actual/target separation. |
 | FR-027 | Reconcile eligible actual/target mismatches through ordinary controller operations with freshness/tolerance/debounce checks, bounded retry/cooldown/deadline, and explicit unmet state after exhaustion. | CC13–CC14 prove correction, coalescing, failure suppression, recovery eligibility, and no infinite write loop. |
 | FR-028 | Interpret supported Somfy local-UI feedback as target-changing user intent only when no durable override/lock blocks it; never infer a button event from ambiguous movement. | CC12 verifies adoption, protected restoration, cause validation, settling, and zero false attribution. |
@@ -1833,21 +1872,21 @@ The active seven-phase runtime contains no LLM prompts or in-context-learning fi
 | FR-030 | Controller evaluates weather/temperature/celestial/registered observations with typed units, freshness, edges, hysteresis, debounce, cooldown, and fail-closed defaults. WeatherSensor queries/publishes only. | CC16, WS01–WS04, WDC01–WDC04 prove observation/decision separation and policy parity. |
 | FR-031 | Normalize external HTTP manual requests and internal Scheduler occurrences into the same Controller admission; Controller internally creates local-button/environment/reconciliation intent. | CC17 proves adapter parity, no Scheduler HTTP dependency, and no competing target or raw-SDN ownership. |
 | FR-032 | Advertise and enforce per-motor/group capabilities, use internal `0=open`/`100=closed` consistently, and serve `ControlSnapshot` from cached state without I/O. | CC18 verifies capability intersection/rejection, endpoint conversion fixtures, no-I/O reads, and truthful desired/reported/delta views. |
-| FR-033 | Treat stop as a safety action that pauses reconciliation for the current target revision until authorized resume or a newer target, and report controller-observed actual state/health to all clients rather than optimistic desired state. | CC18, A02/A06, and UI05 verify pause/resume, no immediate restart, state/change times, reconnect, and unavailable health. |
-| FR-034 | Provide accessible one-press quick tiles with long-hold room detail navigation, room/group/curtain slider control, group editing, confirmed individual calibration, and schedule editing at mobile and desktop widths. | UI02–UI08 and API authorization/schema tests verify the complete interface, gesture separation, scoped navigation, and safety behavior. |
+| FR-033 | Treat stop as a safety action that pauses reconciliation for the current target revision until explicit resume or a newer target, and report controller-observed actual state/health to all clients rather than optimistic desired state. | CC18, A02/A06, and UI05 verify pause/resume, no immediate restart, state/change times, reconnect, and unavailable health. |
+| FR-034 | Provide accessible one-press quick tiles with long-hold room detail navigation, room/group/curtain slider control, group editing, confirmed individual calibration, and schedule editing at mobile and desktop widths. | UI02–UI08 and API validation/schema tests verify the complete interface, gesture separation, scoped navigation, and safety behavior. |
 | FR-035 | Define seven phases using Description/Behavior/Interface/Validation/Design; integrate the application and web client in Phase 1 and retain diagnostics through later phases. | EX01–EX08 keep stable IDs; EX04 server coverage begins in Phase 1, control portions in Phase 3; phase/browser/retention checks pass. |
 | FR-036 | WeatherSensor asynchronously queries providers and publishes typed HTTP WeatherSnapshot updates; Controller determines all curtain responses. | WS01–WS04 and WDC01–WDC04 verify provenance/freshness/HTTP failures and no sensor motor decisions. |
 | FR-037 | Phase 7 Diagnostics Reporting correlates retained serial/protocol/device/controller/automation/weather diagnostics with operational/decision/operation history and optional raw capture. Expensive collection is default-off/on-demand. | DIAG01–DIAG04, LOG01–LOG03, SIM07, REC01–REC03 verify correlation, retention, enablement, redaction, and control isolation. |
 | FR-038 | Deferred: offline bounded simulator timing learning with disjoint held-out validation and versioned provenance. | FL01–FL04 and EX09 remain deferred, outside active acceptance. |
 | FR-039 | Retain serial/protocol/controller diagnostic views across upgrades using a single active I/O owner. Expensive collection is default-off/on-demand, while required control monitoring/verification/protection/error logging remain active. | DIAG01–DIAG04 and SI05 verify retention, ownership, demand cleanup, and no control bypass. |
 | FR-040 | Phase 2 device configuration covers application inventory/profiles/settings and explicitly verified read-only device information; physical programming writes require a separate enabled command specification/readback/hardware acceptance. | DC01–DC02 and API validation reject unsupported programming with zero device writes. |
-| FR-041 | Define and validate the shared overall-system foundation before Phase 1: file/dependency organization, stage-aware configuration, restricted secrets, application/component interfaces, and side-effect-free construction with bounded lifecycle. | BASE01–BASE08 and CASE-EX01 verify the foundation independently of later modules or hardware, without replacing phase acceptance. |
+| FR-041 | Define the shared foundation: static web serving, config.yaml features, safe provider secrets/logging, UTC timestamps, SDN hex addresses, and simple logged startup/stop on the isolated network. Browser authentication, resource-ownership management, and separate configuration update mechanisms are deferred/excluded. | CASE01–CASE05 and CASE-EX01 verify the foundation without replacing phase-specific real-driver acceptance. |
 
 ## Tests
 
 The tables in this section are a specification for tests to be implemented during a later code-generation phase; they are not executable tests in this iteration. Do not create test modules, fixtures, mock transports, simulator traces, browser automation, hardware profiles, or test data now, and do not run unit, integration, simulator, browser, or hardware test commands as part of this specification-only change. When implementation is separately authorized, every generated test shall use Arrange/Act/Assert structure and record its preconditions, initial state, triggering action (or explicitly ordered concurrent actions), observable behavior, expected final state, forbidden side effects, and cleanup result.
 
-Shared-foundation cases BASE01–BASE08 and CASE-EX01 apply before/with Phase 1 and on subsequent integration changes. Active phase cases SI01–SI06, EX01–EX08, WS01–WS04, WDC01–WDC04, LOG01–LOG03, DIAG01–DIAG04, DC01–DC02, REC01–REC03, and the active IDs below are normative acceptance criteria. EX09, SIM08–SIM10, FL01–FL04, H07, FR-021, FR-038, and fidelity-specific system cases are explicitly deferred under Deferred Extensions. A row marked for the future web interface or real hardware remains `not implemented` or `not run` until its required production feature and safe environment exist; it must never be represented as passing based only on this document.
+Shared-foundation cases CASE01–CASE05 and CASE-EX01 apply before/with Phase 1 and on subsequent integration changes. Active phase cases SI01–SI06, EX01–EX08, WS01–WS04, WDC01–WDC04, LOG01–LOG03, DIAG01–DIAG04, DC01–DC02, REC01–REC03, and the active IDs below are normative acceptance criteria. EX09, SIM08–SIM10, FL01–FL04, H07, FR-021, FR-038, and fidelity-specific system cases are explicitly deferred under Deferred Extensions. A row marked for the future web interface or real hardware remains `not implemented` or `not run` until its required production feature and safe environment exist; it must never be represented as passing based only on this document.
 
 Unless a row overrides them, assume internal position `0=open` and `100=closed`, endpoint tolerance is 2%, clocks/random seeds/environmental observations are injected, isolated unit/fault cases default to a byte-level mock (phase acceptance separately requires real hardware for Phases 1–3), files use isolated temporary directories, no SQL or external network is available, and asynchronous work is awaited or advanced by a virtual clock. A partially open curtain is a fresh stopped position strictly between the endpoint tolerances. Simultaneous inputs are released from a test barrier with deterministic ordering. Real movement is prohibited without a validated rig profile and `--allow-motion`.
 
@@ -1857,7 +1896,7 @@ Unless a row overrides them, assume internal position `0=open` and `100=closed`,
 |---|---|---|---|---|---|
 | UT-001 — Configuration/schema acceptance | Pydantic and generated JSON Schema use the same versioned fixture. | No configuration loaded. | Validate and construct the complete valid configuration. | Values normalize once; hexadecimal addresses preserve identity; no I/O occurs. | Immutable model equals the hand-authored expected configuration. |
 | UT-002 — Configuration rejection matrix | Each fixture has one fault: missing/extra field, duplicate identity, unknown group member, invalid timezone/location, malformed schedule/condition, or incompatible backend. | Valid configuration A is active. | Validate each invalid replacement. | Stable field-specific errors are returned; no partial replacement or SDN write occurs. | Configuration A remains active and byte-for-byte unchanged. |
-| UT-003 — Address and action boundaries | Valid range, action enum, and percentage rules are fixed. | No request/model exists. | Parse minimum/maximum, decimal/hex equivalents, zero, overflow, bool, fraction, unknown action, and percentages `-1/0/50/100/101`. | Valid inputs normalize; ambiguous or out-of-range inputs fail before persistence/transport. | Only valid typed requests exist; rejected cases have zero side effects. |
+| UT-003 — Address and action boundaries | Valid range, action enum, and percentage rules are fixed. | No request/model exists. | Parse valid hex values/case, reject decimal public values, invalid width/characters, bool, fraction, unknown action, and percentages `-1/0/50/100/101`. | Valid inputs normalize; ambiguous or out-of-range inputs fail before persistence/transport. | Only valid typed requests exist; rejected cases have zero side effects. |
 | UT-004 — Golden SDN frames | Expected frames come independently from verified JavaScript/document/hardware evidence and use non-palindromic addresses. | Stateless encoder; empty fake transport. | Build open, close, stop, percentage, position-query, and status-query frames. | Command, length, device, address order/complement, DATA, and checksum exactly match fixtures. | Immutable bytes equal fixtures; invalid inputs produce no transport call. |
 | UT-005 — Parser fragmentation/recovery | Valid, corrupted, noisy, fragmented, coalesced, duplicate, and incomplete frame fixtures are available. | Empty bounded receive buffer; no waiter completed. | Feed every valid frame at every split, then corruption/noise followed by valid data. | Valid frames emit once; invalid candidates never become feedback; parser resynchronizes within bounds. | Buffer is empty or contains only the documented incomplete suffix; feedback order is exact. |
 | UT-006 — Partial/mixed state classification | Fresh stopped observations exist at `0`, `1`, `50`, `98`, `100`, plus mixed and offline groups. | No desired target or operation. | Produce motor/group snapshots and future UI status models. | Tolerance is consistent; `50` is partial; mixed remains mixed; unknown is never open/closed. | Reported values remain truthful and separate from desired values; zero commands. |
@@ -1876,10 +1915,10 @@ The following bullets are additional generation and coverage rules for the unit-
 
 - Perform named tests M01–M07, S01–S10, SIM01–SIM07 (SIM08–SIM10 deferred), C01–C16, CC01–CC18, and UI01–UI08 from the SDN, `CurtainController`, and web tables using phase-isolated test modules and reusable fixtures; mock unit fixtures remain default and simulator cases use `SdnSim` with a virtual clock.
 - SDN frame golden tests for every supported action, including JavaScript-compatible source encoding, destination encoding, field inversion, payload, and checksum; call `SdnMsg` directly for boundary/error cases.
-- Address parsing tests for decimal, hexadecimal, boundaries, and invalid values.
+- Address tests accept/normalize canonical SDN hex strings, reject decimal/public numeric forms, and leave reserved-value/wire tests to SdnApi.
 - Pydantic configuration tests for required fields, duplicate addresses/names, invalid group membership, malformed schedule, and invalid timezone/location.
 - Generate and validate JSON Schema for `DesiredTarget`, `GroupTarget`, `Protection`, `ControlIntent`, `CurtainCapabilities`, `ControlDecision`, `ControlSnapshot`, `EnvironmentalCondition`, `ScheduleRule`, and `ControlStateDocument`; reject unknown fields, naive timestamps, invalid units/operators, inconsistent revisions, and invalid condition-tree depth/size before state changes or writes.
-- Atomic JSON persistence tests using temporary directories.
+- Atomic YAML configuration and JSON operational-state persistence tests using temporary directories.
 - Action validation tests proving invalid payloads cannot reach the transport.
 - Scheduler and `CurtainController` tests with fixed clocks/locations and observations for cron, date, timestamp, sunrise/sunset, three twilight levels, moon visibility, Controller-evaluated weather/temperature/environment thresholds, offsets, past events, deduplication, input priority, durable overrides/locks, reconciliation, and atomic reload.
 - Atomic control-state persistence tests for write-before-move ordering, restart restoration, corruption, schema/configuration mismatch, retained handled-event keys, and truthful actual-state refresh.
@@ -1892,14 +1931,14 @@ The following bullets are additional generation and coverage rules for the unit-
 
 | ID and test | Preconditions / assumptions | Initial state | Action performed | Expected behavior | Expected final state |
 |---|---|---|---|---|---|
-| IT-001 — Startup and read API | Valid temp config, mock backend, authentication fixture, no network. | Process/backend stopped. | Enter FastAPI lifespan; call health/config/motors/groups/control-state; exit lifespan. | Components start/stop in ownership order; one backend opens; responses validate and redact secrets. | Service was ready; all tasks/backend are closed with no leaked waiter. |
+| IT-001 — Startup and read API | Valid temp YAML config, mock backend, no network or browser credentials. | Process/backend stopped. | Enter FastAPI lifespan; call health/config/motors/groups/control-state; exit lifespan. | Enabled components start successfully before serving and close on shutdown; one backend opens; responses validate and redact secrets. | Service was ready; all tasks/backend are closed with no leaked waiter. |
 | IT-002 — REST action to wire | Independent golden frames and scripted feedback installed. | Motor freshly stopped open; no operation. | POST already-open, close, stop, percentage, and invalid actions. | Valid changes return 202/exact bytes; no-op is idempotent; invalid requests return 4xx and zero writes. | Accepted actions end only on verified feedback; rejected cases leave target/state unchanged. |
 | IT-003 — Partial-position workflow | Real rig for Phase 3 acceptance; deterministic mock variant; SdnSim variant from Phase 4. | Fresh stopped 50, coherent snapshot/subscription. | POST close; receive moving 70/90 then stopped 100; test fallback reads. | Actual follows real/fixture feedback; acceptance never fabricates position; coherent stopped state verifies completion. | Desired/actual satisfy target or explicit failure; HTTP and WebSocket agree. |
 | IT-004 — Concurrent API commands | Barrier-controlled requests have distinct idempotency keys and known priority. | Three-member group stopped at `50`. | Concurrently POST group close and member open; repeat both requests. | Member supersession affects only that motor; duplicate keys/repeated target do not add revisions or writes. | Selected member targets `0`, others `100`; operation and write counts match the winning plan. |
-| IT-005 — Conflicting scheduled/manual input | Two same-time rules and an HTTP request have explicit release order. | Open motor; occurrence keys unhandled. | Deliver internal schedule callbacks then authenticated manual open. | Both paths reach Controller priority/revision/deduplication; no HTTP dependency for Scheduler. | Manual target wins; stale operations cancelled and occurrences handled once. |
+| IT-005 — Conflicting scheduled/manual input | Two same-time rules and an HTTP request have explicit release order. | Open motor; occurrence keys unhandled. | Deliver internal schedule callbacks then manual open. | Both paths reach Controller priority/revision/deduplication; no HTTP dependency for Scheduler. | Manual target wins; stale operations cancelled and occurrences handled once. |
 | IT-006 — Snapshot/live recovery | Channel session/sequence and bounded subscribers enabled. | Client at snapshot N; motor starts moving. | Inject gap/overflow/reconnect, reorder fallback HTTP responses, then restart owner. | Refresh full snapshot on gaps/session changes; ignore older data; slow clients cannot stall control. | Browser equals current owner snapshot without duplication or regression. |
 | IT-007 — Simulated full workflow | Simulated mode, fixed seed/profile, recording on; serial constructor spied. | Simulator open, curtain at `0`, trace empty. | Close curtain, poll through travel, verify, and shut down. | No serial probe; production codec/controller consumes raw simulated frames/timing. | Curtain stopped `100`; operation completed; trace and cleanup validate. |
-| IT-008 — Atomic config reload | Valid B, invalid C, and prepare/commit fault D fixtures exist. | Config A/rules active; future occurrence scheduled. | PUT B, then C, then fault D. | B commits coherently; obsolete occurrences cancel without replay; C/D preserve prior complete state. | B remains active/on disk; no partial C/D component, task, or write remains. |
+| IT-008 — Configuration API/file loading | Valid YAML B, invalid input C, and write-failure fixtures exist. | Configuration A active. | PUT supported B, then C, then inject a failed write; edit the file externally and start again. | Only API/startup loads settings; failed updates preserve the accepted version and do not emit unrelated motion. | Accepted YAML remains complete; external changes take effect only at startup. |
 | IT-009 — Transport loss/recovery | Backend supports disconnect and new generation. | Close operation active at actual `60`. | Disconnect, issue request, deliver late old feedback, reconnect, and refresh queries. | Operation fails unavailable; safe 503 returned; old feedback rejected; fresh generation restores state. | Desired remains `100`; actual equals fresh query; no failed operation falsely completes/replays. |
 | IT-010 — Credentials through app | Restricted credentials with sentinel; log/API capture active. | App stopped. | Start with config/credentials; invoke enabled provider and read APIs. | Only intended adapter sees its secret; loader/redaction contract holds. | Service operates and sentinel is absent from logs, responses, state, and traces. |
 | IT-011 — Future static client | Run only after UI implementation; same-origin browser has no internet. | App ready with known room states. | Request `/`/assets; exercise mobile/desktop press, hold, slider, reconnect, and admin forms. | Correct assets/accessibility and HTTP action/snapshot calls; no CDN; long-hold emits no action. | Browser equals server snapshot and only intended mutations occurred. |
@@ -1928,15 +1967,15 @@ System-wide tests exercise policy, scheduling, persistence, controller, protocol
 | SW-003 — Long-hold navigation safety | Pointer held 650 ms; room has two contained subgroups and one overlapping external group. | Web interface implemented and inventory valid. | No movement pending; room states mixed. | Hold/release tile, then select a member without applying movement. | Hold suppresses click/action and scopes detail to room, wholly contained subgroups, and members. | Desired/physical state unchanged; external overlapping group absent; selected detail ready. |
 | SW-004 — Simultaneous group/member commands | Same barrier releases group close and member open at equal manual priority. | Three-member group; deterministic tie-break/revisions. | All stopped at `50`; no protection. | Release both commands concurrently. | Deterministic order; member intent supersedes only that member; stale queued work discarded. | Member A ends `0`; B/C end `100`; one current revision per motor; no conflicting operation. |
 | SW-005 — Conflicting schedules | Rule A opens and B closes same group at same instant. | Stable IDs define ordering; no manual input/protection. | Group stopped `50`; keys unhandled. | Advance clock to collision. | Both decisions audited/handled once; ordering selects one target without oscillation/replay. | Deterministic winner is final target; at most one active plan; restart cannot replay either. |
-| SW-006 — Manual versus schedule | Scheduled close active at actual `60`; authenticated manual open arrives. | Manual priority exceeds schedule. | Desired `100`; close operation moving. | Submit manual open before completion. | New revision supersedes close; obsolete completion cannot overwrite target; reversal follows safety rules. | Curtain ends stopped `0`; manual revision current; schedule occurrence remains handled. |
+| SW-006 — Manual versus schedule | Scheduled close active at actual `60`; manual open arrives. | Manual priority exceeds schedule. | Desired `100`; close operation moving. | Submit manual open before completion. | New revision supersedes close; obsolete completion cannot overwrite target; reversal follows safety rules. | Curtain ends stopped `0`; manual revision current; schedule occurrence remains handled. |
 | SW-007 — Lock versus Somfy local input | Locked target `100`; valid local-button feedback opens curtain. | Cause metadata supported; one correction allowed. | Desired/actual `100`; lock active. | Inject local movement ending stopped `20`. | Actual immediately becomes `20`; target is not adopted; bounded reconciliation follows debounce. | Actual returns `100` or explicit `failed_unmet`; no infinite retry or hardware-lock claim. |
 | SW-008 — Environmental conflict/staleness | Temperature-close edge overlaps sunset-close; next weather sample stale. | Units, freshness, hysteresis, cooldown configured. | Curtain open; keys unhandled. | Cross temperature, cross sunset, then reevaluate stale weather. | Eligible rules each run once; duplicate target idempotent; stale value cannot retrigger or become zero. | Target remains closed; handled keys/cooldowns persist; next solar event exists. |
 | SW-009 — Mid-movement transport loss | Simulated close disconnects at `55`; old/new generation feedback available. | Blind retry disabled on disconnect. | Desired `100`; active operation; actual `55`. | Drop backend, send late old feedback, reconnect, query fresh state. | Operation fails unavailable; old frames ignored; API remains alive; new generation restores health. | Desired `100`; actual equals fresh query; not falsely complete; reconciliation follows bounded policy. |
 | SW-010 — Durable restart after conflict | Manual target superseded schedule; target/key committed before movement. | Atomic state valid; simulator restart policy fixed. | Desired `0`; last actual `40`; incomplete operation. | Restart and cross prior occurrence time. | Desired/keys restore; actual starts unknown/stale then refreshes; schedule does not replay. | Manual target remains; actual comes from fresh feedback; reconciliation revision is consistent. |
-| SW-011 — Reload during operation | Valid B removes group/changes rules; invalid C supplied. | Prepare/commit and quarantine policies enabled. | Config A active; member closing; browser polling. | Reload B, then C while feedback arrives. | B commits coherently; actual continues updating; removed references quarantine; C preserves B. | B active/on disk; snapshots truthful; no C-owned task/write remains. |
+| SW-011 — API configuration during operation | Valid B removes group/changes rules; invalid C supplied. | Configuration API and Controller validation active. | Config A active; member closing; browser polling. | PUT B, then C while feedback arrives. | B applies and persists; actual continues updating; removed references follow Controller policy; C preserves B. | B active/on disk; snapshots truthful; rejected C causes no task/write. |
 | SW-012 — Slow live client with control | Client A stops draining WS while B commands and Scheduler delivers internal occurrences. | Bounded event queues/request deadlines. | Both at snapshot N. | Overflow A queue; B closes curtain; A reconnects using HTTP snapshot/fallback. | A resynchronizes without blocking B, Controller, or SDN. | Verified motor outcome and identical current client snapshots; no unbounded buffers. |
-| SW-013 — Stop across sources | Scheduled close active; reconciliation queued; manual stop arrives. | Stop is highest safety priority. | Moving at `45`; desired `100`. | Submit stop, deliver late close feedback, advance reconciliation clock. | Stop dispatches first; active/queued movement cancels; late feedback only updates actual; reconcile pauses. | Truthful stopped position; target revision paused until authorized resume/new target. |
-| SW-014 — Shutdown under load | Occurrence due, query/weather poll pending, WebSocket clients subscribed, diagnostic sink active. | Finite deadlines and one owner per resource. | Controller running at partial position. | Trigger application shutdown. | Stop admission/subscriptions/occurrences/polls, flush Controller state, release owned SDN/backend, finalize reports. | No leaked queues/tasks/post-close writes or fabricated state; incomplete reports marked explicitly. |
+| SW-013 — Stop across sources | Scheduled close active; reconciliation queued; manual stop arrives. | Stop is highest safety priority. | Moving at `45`; desired `100`. | Submit stop, deliver late close feedback, advance reconciliation clock. | Stop dispatches first; active/queued movement cancels; late feedback only updates actual; reconcile pauses. | Truthful stopped position; target revision paused until explicit resume/new target. |
+| SW-014 — Shutdown under load | Occurrence due, query/weather poll pending, WebSocket clients subscribed, diagnostic sink active. | Normal component start/close calls. | Controller running at partial position. | Trigger application shutdown. | Stop admission/subscriptions/occurrences/polls, flush Controller state, release owned SDN/backend, finalize reports. | No leaked queues/tasks/post-close writes or fabricated state; incomplete reports marked explicitly. |
 
 ### End-to-End Tests
 
@@ -1947,7 +1986,7 @@ System-wide tests exercise policy, scheduling, persistence, controller, protocol
 | E2E-003 / H03 — Partial movement/stop | Isolated non-production motor; `--allow-motion`; stop verified. | At safe endpoint. | Move, observe partial feedback, stop, query until stopped. | Live state shows partial/motion; stop wins; write alone never completes. | Physically stopped within range at fresh partial position; cleanup recorded. |
 | E2E-004 / H04 — Group verification | Group contains only allowlisted motors; operator confirms travel. | Every member stopped with captured state. | Move group and query each member. | One group command; individual verification; offline/partial failures explicit. | Complete only if every member verifies; otherwise truthful aggregate failure. |
 | E2E-005 / H05 — Interruption/recovery | Dedicated rig permits interruption; exclusive port ownership. | Healthy fresh stopped state. | Interrupt, attempt query/action, restore, refresh. | Offline/stale state; no blind movement retry; safe API; new generation rejects old data. | Fresh actual/health return; failed work is not completed or replayed. |
-| E2E-006 / H06 — Full live workflow | Authenticated HTTP/WebSocket client; declared motion rig; competing sources disabled. | Current HTTP snapshot; safely stopped motor. | Submit permitted movement; receive live updates; reconnect using HTTP; test fallback. | Genuine serial feedback alone changes actual state; slow/gapped clients resynchronize without blocking. | Physical device and operation agree on verified outcome; trace/sequence/cleanup evidence recorded. |
+| E2E-006 / H06 — Full live workflow | HTTP/WebSocket client; declared motion rig; competing sources disabled. | Current HTTP snapshot; safely stopped motor. | Submit permitted movement; receive live updates; reconnect using HTTP; test fallback. | Genuine serial feedback alone changes actual state; slow/gapped clients resynchronize without blocking. | Physical device and operation agree on verified outcome; trace/sequence/cleanup evidence recorded. |
 | E2E-007 — Real scheduled event | Dedicated safe rig; one test rule; operator present. | Known stopped start; occurrence unhandled. | Start before due time and wait through occurrence. | Rule fires once through ordinary control path and cannot duplicate on reevaluation. | Target verified or explicitly failed; key persists; next occurrence correct; cleanup safe. |
 | E2E-008 / H07 — Real/simulator fidelity (deferred) | Deferred extension only; compatible approved trace/profile/seed; same requests/start; scale 1.0. | Real trace complete/immutable; simulator reset. | Replay in simulator and compare. | Report comparability, components, coverage, hard conditions, total, and mismatches independently. | Valid reproducible `0..1` report or invalid reasons with no score; source traces unchanged. |
 
@@ -1958,6 +1997,8 @@ The following bullets are additional generation and safety rules for the end-to-
 - Verify a configured scheduled action fires once at its deterministic test time. Do not use unattended tests against installed curtains without explicit operator approval.
 
 ## Deferred Extensions
+
+Browser authentication (login, bearer/session handling, browser roles, and HTTP/WebSocket authentication enforcement) is deferred. Current use assumes the isolated device network. No resource-ownership framework or separate configuration-update mechanism is required. Schema validation, control protection, provider-secret redaction, and serialized device I/O remain applicable.
 
 These extensions are outside the active seven-phase build. Preserve their requirements and test IDs as design/reference material for possible reuse, but do not construct them, require their dependencies, or gate active acceptance on them. WebSocket live updates and HTTP snapshot/polling fallback are active. SSE and durable event replay may be proposed later. Simulation comparison/calibration has no active development phase.
 
@@ -2044,17 +2085,16 @@ Use read-only trace loading, comparability checking, event alignment, component 
 
 ### Open Issues
 
-- Authentication/authorization and network exposure policy for the HTTP action/snapshot/reporting and administrator endpoints has not been fully specified. Until defined, deployment must restrict network access; group, schedule, and calibration mutations must not be exposed outside a trusted administrator context.
 - Actual position/status response layouts, position convention, group addressing, and device polling timing require verification against supplied Somfy documentation or hardware captures before hardware acceptance.
 - Jog, count/incremental positioning, wink, and **hardware SDN** network/local-UI lock commands are deferred extensions requiring profile resolution and separate hardware tests. Application policy locks are specified independently and send no SDN lock command.
-- The desired serial device path and production JSON configuration values must be supplied during deployment.
+- The desired serial device path and production YAML configuration values must be supplied during deployment.
 - Real serial/motor acceptance remains unverified until the applicable H01–H06 (H07 deferred) cases run on a configured rig. Passing mock or simulator tests does not resolve these physical communication uncertainties.
 - Simulator correctness is accepted from independent byte/state/timing fixtures without claiming physical fidelity. H07 calibration/fidelity evidence is a deferred extension.
 
 ### Resolved Issues
 
-- External MySQL configuration and SQL CRUD are replaced by one local JSON configuration file passed with `--config`.
-- The legacy browser pages, jQuery, and Socket.IO are replaced by the dependency-free `static/` client using HTTP commands/snapshots and authenticated WebSocket updates with polling fallback.
+- External MySQL configuration and SQL CRUD are replaced by one local YAML configuration file passed with `--config`.
+- The legacy browser pages, jQuery, and Socket.IO are replaced by the dependency-free `static/` client using HTTP commands/snapshots and WebSocket updates with polling fallback. Browser authentication is deferred; the current deployment uses the isolated device network.
 - Alexa is explicitly deferred: this version has no Alexa module, routes, dependencies, configuration, credentials, or acceptance claim.
 - The implementation is organized as `main.py` plus small, purpose-specific support classes rather than a large package hierarchy.
 - Runtime state, monitoring, verification, and optional single retry are owned by `CurtainController`; separate state-store/monitor/reconciler service classes are unnecessary initially.
@@ -2062,6 +2102,6 @@ Use read-only trace loading, comparability checking, event alignment, component 
 - CurtainController owns durable targets, group expansion, local-button adoption, protection, bounded convergence, and atomic recovery. WeatherSensor supplies updates; only Controller decides curtain responses. Actual state remains fresh decoded motor truth.
 - Autonomous rules cover five-field cron, sunrise/sunset, civil/nautical/astronomical twilight, moon-visible policy, weather, outside temperature, and allowlisted environmental sources with typed edge/freshness safeguards.
 - Group membership identifies the motors individually queried to verify a supported group command.
-- Secrets are separated from `config.json` into a restricted, root-owned `creds.yaml` file readable by the service group.
+- Secrets are separated from `config.yaml` into a restricted, root-owned `creds.yaml` file readable by the service group.
 - Communication health and per-field freshness are separate from reported motor motion/faults; received observations retain generation/sequence metadata for coherent verification and deduplication.
 - Tests explicitly support mock, stateful simulated, and real motor/serial communication, with shared behavior assertions, versioned raw traces, and separate correctness, fidelity, and physical acceptance evidence.
