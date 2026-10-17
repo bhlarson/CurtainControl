@@ -7,3 +7,4 @@ croniter
 astral
 ephem
 httpx
+tzdata; sys_platform == "win32"

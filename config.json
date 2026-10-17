@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "sdn": {
+    "mode": "simulated",
+    "controller_address": 1,
+    "recording": { "enabled": false, "directory": "traces" },
+    "simulation": {
+      "seed": 20261004,
+      "time_scale": 1.0,
+      "timing_profile": "st30-default",
+      "devices": [
+        { "motor": "Stairs East", "initial_position_percent": 0, "travel_time_seconds": 20.0 },
+        { "motor": "Entry Left", "initial_position_percent": 0, "travel_time_seconds": 20.0 },
+        { "motor": "Sunroom North", "initial_position_percent": 0, "travel_time_seconds": 20.0 },
+        { "motor": "Studio Window", "initial_position_percent": 0, "travel_time_seconds": 20.0 }
+      ]
+    }
+  },
+  "serial": {
+    "port": "/dev/ttyUSB0",
+    "baudrate": 4800,
+    "bytesize": 8,
+    "parity": "odd",
+    "stopbits": 1
+  },
+  "monitoring": {
+    "poll_active_interval_seconds": 0.5,
+    "poll_idle_interval_seconds": 60,
+    "query_timeout_seconds": 0.5,
+    "position_freshness_seconds": 90,
+    "status_freshness_seconds": 90,
+    "tolerance_percent": 3,
+    "retry_enabled": false
+  },
+  "control": {
+    "state_file": "/var/lib/curtain-control/control-state.json",
+    "startup_target_policy": "fresh_actual_if_missing",
+    "position_tolerance_percent": 2,
+    "local_input_debounce_seconds": 1.0,
+    "reconcile_interval_seconds": 30,
+    "retry_limit": 1,
+    "retry_cooldown_seconds": 10,
+    "reconciliation_deadline_seconds": 120,
+    "handled_event_history_limit": 1000
+  },
+  "location": { "latitude": 47.6062, "longitude": -122.3321, "timezone": "America/Los_Angeles" },
+  "web": {
+    "auth_mode": "trusted_network",
+    "quick_rooms": [
+      { "id": "all", "label": "Full Home", "target": "All Windows", "icon": "fa-home" },
+      { "id": "entry", "label": "Entry", "target": "Entry", "icon": "fa-door-open" },
+      { "id": "sunroom", "label": "Sunroom", "target": "Sunroom", "icon": "fa-sun" },
+      { "id": "studio", "label": "Studio", "target": "Studio", "icon": "fa-mobile-alt" }
+    ]
+  },
+  "data_sources": {
+    "weather": { "enabled": true, "provider": "nws" }
+  },
+  "motors": [
+    { "address": "0x0671E4", "name": "Stairs East", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 },
+    { "address": "0x0671E5", "name": "Entry Left", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 },
+    { "address": "0x0671E6", "name": "Sunroom North", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 },
+    { "address": "0x0671E7", "name": "Studio Window", "description": "", "type": "ST30 RS485", "install": "2026-01-01", "angle": 0, "distance": 0 }
+  ],
+  "groups": [
+    { "address": "0x010110", "name": "Main Floor", "description": "", "devices": ["Stairs East", "Entry Left"] },
+    { "address": "0x010111", "name": "All Windows", "description": "", "devices": ["Stairs East", "Entry Left", "Sunroom North", "Studio Window"] },
+    { "address": "0x010112", "name": "Entry", "description": "", "devices": ["Entry Left"] },
+    { "address": "0x010113", "name": "Sunroom", "description": "", "devices": ["Sunroom North"] },
+    { "address": "0x010114", "name": "Studio", "description": "", "devices": ["Studio Window"] }
+  ],
+  "schedules": [
+    { "id": "weekday-open", "enabled": true, "timer": "cron", "expression": "45 5 * * 1-5", "action": { "action": "open", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
+    { "id": "sunset-close", "enabled": true, "timer": "solar", "event": "sunset", "offset_seconds": -1800, "action": { "action": "close", "target_type": "group", "target": "Main Floor", "source": "scheduler" } },
+    { "id": "hot-afternoon-shade", "enabled": false, "timer": "solar", "event": "civil_dawn", "offset_seconds": 21600, "conditions": { "all": [{ "source": "weather", "field": "outside_temperature", "operator": ">=", "value": 80, "unit": "degF", "max_age_seconds": 900, "hysteresis": 3 }] }, "debounce_seconds": 300, "cooldown_seconds": 3600, "action": { "action": "set_percent", "percentage": 75, "target_type": "group", "target": "Main Floor", "source": "environment" } }
+  ]
+}
